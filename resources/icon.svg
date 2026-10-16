@@ -1,21 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">WeSignal app symbol</title>
-  <desc id="desc">Three rising blue forms and a sweeping lower form suggesting collective action.</desc>
-  <defs>
-    <linearGradient id="signal" x1="86" y1="420" x2="408" y2="106" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1769E0"/>
-      <stop offset="0.58" stop-color="#3D8EF0"/>
-      <stop offset="1" stop-color="#8EC5FF"/>
-    </linearGradient>
-    <linearGradient id="sweep" x1="90" y1="420" x2="423" y2="354" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#142B4A"/>
-      <stop offset="0.3" stop-color="#1769E0"/>
-      <stop offset="1" stop-color="#8EC5FF"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="#F7FAFF"/>
-  <path fill="url(#signal)" d="M101 337c-15-12-18-33-8-50l69-116c12-21 38-29 59-17 21 13 28 40 16 61l-70 118c-12 21-44 20-66 4Z"/>
-  <path fill="url(#signal)" d="M194 338c-15-12-18-32-8-50l70-116c12-21 38-28 59-16 21 12 28 39 16 60l-70 118c-12 21-45 20-67 4Z"/>
-  <path fill="url(#signal)" d="M288 338c-15-11-19-31-9-48l63-104c12-20 37-27 58-15 20 12 27 37 16 58l-64 105c-12 20-43 19-64 4Z"/>
-  <path fill="url(#sweep)" d="M98 359c81 51 184 61 300-7 16-10 29-2 31 11 3 15-4 29-18 38-128 77-247 65-328 7-17-12-20-34-7-47 6-6 14-7 22-2Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" role="img" aria-labelledby="title desc">
+  <title id="title">WeSignal original app icon</title>
+  <desc id="desc">The original WeSignal symbol supplied for the app launcher.</desc>
+  <image href="icon-original.png" x="0" y="0" width="720" height="720" />
 </svg>

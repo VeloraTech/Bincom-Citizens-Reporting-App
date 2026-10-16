@@ -14,13 +14,15 @@
   <preference name="DisallowOverscroll" value="true" />
   <preference name="StatusBarStyle" value="lightcontent" />
   <preference name="StatusBarBackgroundColor" value="#1769E0" />
+  <preference name="AndroidWindowSplashScreenAnimatedIcon" value="resources/android/icon-512.png" />
+  <preference name="AndroidWindowSplashScreenBackground" value="#FFFFFF" />
   <icon src="resources/android/icon-512.png" />
   <platform name="android">
-    <icon src="resources/android/icon/drawable-mdpi/icon.png" density="mdpi" />
-    <icon src="resources/android/icon/drawable-hdpi/icon.png" density="hdpi" />
-    <icon src="resources/android/icon/drawable-xhdpi/icon.png" density="xhdpi" />
-    <icon src="resources/android/icon/drawable-xxhdpi/icon.png" density="xxhdpi" />
-    <icon src="resources/android/icon/drawable-xxxhdpi/icon.png" density="xxxhdpi" />
+    <icon src="resources/android/icon/drawable-mdpi/icon.png" density="mdpi" foreground="resources/android/adaptive/mdpi/foreground.png" background="resources/android/adaptive/mdpi/background.png" />
+    <icon src="resources/android/icon/drawable-hdpi/icon.png" density="hdpi" foreground="resources/android/adaptive/hdpi/foreground.png" background="resources/android/adaptive/hdpi/background.png" />
+    <icon src="resources/android/icon/drawable-xhdpi/icon.png" density="xhdpi" foreground="resources/android/adaptive/xhdpi/foreground.png" background="resources/android/adaptive/xhdpi/background.png" />
+    <icon src="resources/android/icon/drawable-xxhdpi/icon.png" density="xxhdpi" foreground="resources/android/adaptive/xxhdpi/foreground.png" background="resources/android/adaptive/xxhdpi/background.png" />
+    <icon src="resources/android/icon/drawable-xxxhdpi/icon.png" density="xxxhdpi" foreground="resources/android/adaptive/xxxhdpi/foreground.png" background="resources/android/adaptive/xxxhdpi/background.png" />
     <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" android:usesCleartextTraffic="false" xmlns:android="http://schemas.android.com/apk/res/android" />
     <allow-intent href="market:*" />
   </platform>
