@@ -8,7 +8,7 @@
     "prepare": "cordova prepare",
     "start": "cordova serve",
     "check": "node --check www/js/app.js && node --check www/js/supabase.js",
-    "build:android": "cordova platform add android --no-save && cordova build android --debug"
+    "build:android": "cordova build android --debug"
   },
   "keywords": [
     "cordova",

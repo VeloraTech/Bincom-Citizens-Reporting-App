@@ -44,9 +44,6 @@ jobs:
       - name: Run source checks
         run: npm run check
 
-      - name: Add Cordova Android platform
-        run: npx cordova platform add android --no-save
-
       - name: Verify Cordova Android requirements
         run: npx cordova requirements android
 
