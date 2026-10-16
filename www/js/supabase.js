@@ -15,6 +15,7 @@
     onAuthStateChange(callback) { return client ? client.auth.onAuthStateChange(callback) : { data: { subscription: { unsubscribe() {} } } }; },
     async signUp(email, password) { return client ? client.auth.signUp({ email, password }) : { data: null, error: unavailable() }; },
     async signIn(email, password) { return client ? client.auth.signInWithPassword({ email, password }) : { data: null, error: unavailable() }; },
+    async resetPassword(email) { return client ? client.auth.resetPasswordForEmail(email) : { data: null, error: unavailable() }; },
     async signOut() { return client ? client.auth.signOut() : { error: unavailable() }; },
     async listPublicReports() { if (!client) return { data: [], error: unavailable() }; return client.from('reports').select('id,title,category,status,description,created_at,location_label').eq('is_public', true).order('created_at', { ascending: false }); },
     async getPublicReport(id) { if (!client) return { data: null, error: unavailable() }; return client.from('reports').select('id,title,category,status,description,created_at,location_label').eq('id', id).eq('is_public', true).maybeSingle(); },

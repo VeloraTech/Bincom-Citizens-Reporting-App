@@ -105,24 +105,58 @@
         <div id="detail-content"></div>
       </section>
 
-      <section id="screen-auth" class="screen narrow-screen" aria-labelledby="auth-title" hidden>
-        <button id="auth-back" class="back-button" type="button">← &nbsp;Back</button>
-        <div class="section-heading">
-          <div><p class="eyebrow">Your account</p><h2 id="auth-title">Sign in to report</h2></div>
-        </div>
-        <p class="auth-intro">Create an account to submit a report and keep it connected to you. You can browse public reports without signing in.</p>
-        <form id="auth-form" novalidate>
-          <label for="auth-email">Email<span aria-hidden="true">*</span></label>
-          <input id="auth-email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="you@example.com">
-          <label for="auth-password">Password<span aria-hidden="true">*</span></label>
-          <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters">
-          <div id="auth-message" class="form-message" role="alert" aria-live="polite"></div>
-          <div class="auth-actions">
-            <button class="primary-button" type="submit" data-auth-action="signin">Sign in</button>
-            <button class="secondary-button" type="button" data-auth-action="signup">Create account</button>
+      <section id="screen-auth" class="screen auth-screen" aria-labelledby="auth-title" hidden>
+        <header class="auth-topbar">
+          <div class="auth-topbar-brand">
+            <button id="auth-back" class="auth-back" type="button" aria-label="Go back">←</button>
+            <img src="images/wesignal-icon.png" alt="">
+            <h2>Authentication</h2>
           </div>
-        </form>
-        <button id="sign-out" class="secondary-button sign-out" type="button" hidden>Sign out</button>
+          <span class="auth-avatar" aria-hidden="true">●</span>
+        </header>
+        <div class="auth-content">
+          <div class="auth-quick-row">
+            <div class="auth-wordmark"><img src="images/wesignal-icon.png" alt=""><span>WeSignal</span></div>
+            <button id="auth-guest-top" class="auth-guest-compact" type="button">Continue as Guest <span aria-hidden="true">→</span></button>
+          </div>
+          <div class="auth-hero">
+            <span class="auth-eyebrow"><span aria-hidden="true"></span>Civic Response Network</span>
+            <h1 id="auth-title">Welcome to WeSignal</h1>
+            <p>Sign in to track live incidents, manage civic alerts, or report municipal issues in real time.</p>
+          </div>
+          <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+            <button id="tab-signin" class="auth-tab is-active" type="button" role="tab" aria-selected="true" data-auth-mode="signin"><span aria-hidden="true">↪</span> Sign In</button>
+            <button id="tab-signup" class="auth-tab" type="button" role="tab" aria-selected="false" data-auth-mode="signup"><span aria-hidden="true">＋</span> Create Account</button>
+          </div>
+          <form id="auth-form" class="auth-form" novalidate>
+            <div class="auth-field">
+              <label for="auth-email">Email Address</label>
+              <div class="auth-input-wrap"><span class="auth-input-icon" aria-hidden="true">@</span><input id="auth-email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="name@example.com" aria-describedby="auth-email-error"><span id="auth-email-check" class="auth-email-check" aria-hidden="true" hidden>✓</span></div>
+              <p id="auth-email-error" class="auth-field-error" hidden>Please enter a valid email address.</p>
+            </div>
+            <div class="auth-field">
+              <div class="auth-label-row"><label for="auth-password">Password</label><button id="forgot-password-btn" class="auth-text-link" type="button">Forgot password?</button></div>
+              <div class="auth-input-wrap"><span class="auth-input-icon" aria-hidden="true">⌑</span><input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"><button id="toggle-password" class="auth-visibility" type="button" aria-label="Show password">Show</button></div>
+              <div id="signup-password-hints" class="auth-strength" hidden><span>At least 6 characters</span><span id="strength-label">Required</span><div class="auth-strength-track"><span id="strength-bar"></span></div></div>
+            </div>
+            <div id="auth-confirm-field" class="auth-field" hidden>
+              <label for="auth-confirm-password">Confirm Password</label>
+              <div class="auth-input-wrap"><span class="auth-input-icon" aria-hidden="true">⌑</span><input id="auth-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Enter your password again" disabled></div>
+            </div>
+            <div id="auth-message" class="auth-alert" role="alert" aria-live="polite" hidden></div>
+            <button id="auth-submit" class="auth-submit" type="submit"><span id="submit-spinner" class="auth-spinner" aria-hidden="true" hidden></span><span id="submit-text">Sign In</span><span id="submit-arrow" aria-hidden="true">→</span></button>
+          </form>
+          <div class="auth-divider"><span>or continue with</span></div>
+          <div class="auth-alternatives">
+            <button id="auth-guest" class="auth-guest-button" type="button"><span aria-hidden="true">◉</span><span>Browse Alerts as Guest</span><span class="auth-limited">Public feed</span></button>
+          </div>
+          <div class="auth-trust-grid">
+            <div class="auth-trust-card"><span class="auth-trust-icon" aria-hidden="true">⌑</span><span><strong>Private by default</strong><small>Your reports are not published automatically.</small></span></div>
+            <div class="auth-trust-card"><span class="auth-trust-icon" aria-hidden="true">◎</span><span><strong>Guest browsing</strong><small>Explore public incidents without an account.</small></span></div>
+          </div>
+          <p class="auth-legal">Sign in or create an account to submit a report. You can browse public reports as a guest.</p>
+          <button id="sign-out" class="secondary-button sign-out" type="button" hidden>Sign out</button>
+        </div>
       </section>
 
       <section id="screen-report" class="screen narrow-screen" aria-labelledby="report-title" hidden>
