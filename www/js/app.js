@@ -5,6 +5,7 @@
   const labels = { roads:'Roads & walkways', waste:'Waste & sanitation', water:'Water', power:'Power & lighting', safety:'Safety', other:'Other' };
   const statuses = { submitted:'Submitted', acknowledged:'Acknowledged', in_progress:'In progress', resolved:'Resolved' };
   let session = null; let activeFilter = 'all'; let incidents = []; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
+  let myReports = []; let reportsFilter = 'all'; let reportsRequest = 0;
   let authResolved = false; let startupResolved = false; let startupBusy = false; let authSubscription = null; let pendingStartupAuth = null; let authMode = 'signin';
   const escapeHtml = (v) => String(v || '').replace(/[&<>'"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const date = (v) => v ? new Date(v).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'Date unavailable';
@@ -102,7 +103,7 @@
       showStartupFailure(message);
     } finally { startupBusy = false; }
   }
-  function showScreen(name) { screens.forEach((s) => { const on=s.id===`screen-${name}`; s.hidden=!on; s.classList.toggle('is-active',on); }); const screenTitles={feed:'Explore',detail:'Incident details',auth:'Authentication',report:'Report an issue',reports:'My Reports'}; $('#header-screen-title').textContent=screenTitles[name]||'WeSignal'; document.body.classList.toggle('feed-screen-active',name==='feed'); document.body.classList.toggle('report-screen-active',name==='report'); document.body.classList.toggle('form-active',name==='report'||name==='auth'); document.body.classList.toggle('auth-screen-active',name==='auth'); document.body.classList.remove('keyboard-open'); document.querySelectorAll('[data-screen]').forEach((n)=>n.classList.toggle('is-selected',n.dataset.screen===name)); if(name==='report') updateGate(); if(name==='reports') loadReports(); window.scrollTo({top:0,behavior:'smooth'}); }
+  function showScreen(name) { screens.forEach((s) => { const on=s.id===`screen-${name}`; s.hidden=!on; s.classList.toggle('is-active',on); }); const screenTitles={feed:'Explore',detail:'Incident details',auth:'Authentication',report:'Report an issue',reports:'My Reports'}; $('#header-screen-title').textContent=screenTitles[name]||'WeSignal'; document.body.classList.toggle('feed-screen-active',name==='feed'); document.body.classList.toggle('report-screen-active',name==='report'); document.body.classList.toggle('reports-screen-active',name==='reports'); document.body.classList.toggle('form-active',name==='report'||name==='auth'); document.body.classList.toggle('auth-screen-active',name==='auth'); document.body.classList.remove('keyboard-open'); document.querySelectorAll('[data-screen]').forEach((n)=>n.classList.toggle('is-selected',n.dataset.screen===name)); if(name==='report') updateGate(); if(name==='reports') loadReports(); window.scrollTo({top:0,behavior:'smooth'}); }
   function state(el,title,body,retry) { el.innerHTML=`<h3>${title}</h3><p>${body}</p>${retry?'<button class="secondary-button retry-button" type="button">Try again</button>':''}`; if(retry) el.querySelector('button').addEventListener('click',retry); }
   function renderFilters() {
     const el = $('#category-filters');
@@ -336,11 +337,109 @@
       button.innerHTML = '<span aria-hidden="true">↑</span> Submit incident report';
     }
   }
-  async function loadReports(){const st=$('#reports-state');$('#reports-list').innerHTML='';st.hidden=false;if(!session){state(st,'Sign in to view your reports','Your private submitted reports are only available to your account.');return;}if(!window.BincomData.isConfigured()){state(st,'Reports are not connected',window.BincomData.configurationMessage());return;}st.innerHTML='<div class="skeleton" aria-label="Loading reports"></div>';const r=await window.BincomData.listReports();if(r.error){state(st,'We could not load your reports','Check your connection and try again.',loadReports);return;}if(!r.data.length){state(st,'No reports yet','Reports you submit from this account will appear here.');return;}st.hidden=true;$('#reports-list').innerHTML=r.data.map((i)=>`<li class="incident-card"><div class="incident-top"><span class="chip">${escapeHtml(labels[i.category]||i.category)}</span><span class="chip status-chip">${escapeHtml(statuses[i.status]||i.status)}</span></div><h3>${escapeHtml(i.title)}</h3><div class="incident-meta"><span>${date(i.created_at)}</span>${i.location_label?`<span>· ${escapeHtml(i.location_label)}</span>`:''}</div></li>`).join('');}
+  function showReportsState(title, body, actions = [], kind = 'empty') {
+    const panel = $('#reports-state');
+    panel.hidden = false;
+    panel.className = `reports-state reports-state-${kind}`;
+    $('#reports-state-title').textContent = title;
+    $('#reports-state-copy').textContent = body;
+    const actionBox = $('#reports-state-actions');
+    actionBox.replaceChildren();
+    actions.forEach((item) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = item.className || 'secondary-button';
+      button.textContent = item.label;
+      if (item.auth) button.dataset.reportsAuth = item.auth;
+      if (item.action) button.dataset.reportsAction = item.action;
+      actionBox.append(button);
+    });
+  }
+  function renderMyReports() {
+    const active = myReports.filter((item) => item.status !== 'resolved');
+    const resolved = myReports.filter((item) => item.status === 'resolved');
+    $('#reports-count-all').textContent = myReports.length;
+    $('#reports-count-active').textContent = active.length;
+    $('#reports-count-resolved').textContent = resolved.length;
+    $('#reports-summary').textContent = `${myReports.length} report${myReports.length === 1 ? '' : 's'} on this account`;
+    document.querySelectorAll('[data-reports-filter]').forEach((button) => {
+      const selected = button.dataset.reportsFilter === reportsFilter;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    const filtered = reportsFilter === 'active' ? active : reportsFilter === 'resolved' ? resolved : myReports;
+    const list = $('#reports-list');
+    if (!filtered.length) {
+      list.hidden = true;
+      list.replaceChildren();
+      const label = reportsFilter === 'resolved' ? 'resolved' : 'active';
+      showReportsState(`No ${label} reports`, reportsFilter === 'resolved' ? 'Resolved reports from your account will appear here.' : 'Reports that are still open will appear here.', reportsFilter === 'active' ? [{ label: 'Report an incident', action: 'create', className: 'primary-button' }] : []);
+      return;
+    }
+    $('#reports-state').hidden = true;
+    list.hidden = false;
+    list.innerHTML = filtered.map((item) => {
+      const statusKey = Object.hasOwn(statuses, item.status) ? item.status : 'unknown';
+      const statusLabel = statuses[statusKey] || 'Status unavailable';
+      const categoryLabel = labels[item.category] || item.category || 'Other';
+      const description = typeof item.description === 'string' ? item.description.trim() : '';
+      const excerpt = description.length > 180 ? `${description.slice(0, 177).trimEnd()}…` : description;
+      const createdAt = item.created_at || '';
+      const location = item.location_label ? item.location_label : 'No location added';
+      return `<li class="account-report-card"><div class="account-report-top"><div class="account-report-badges"><span class="account-report-status status-${statusKey}">${escapeHtml(statusLabel)}</span><span class="account-report-category">${escapeHtml(categoryLabel)}</span></div><time datetime="${escapeHtml(createdAt)}">${escapeHtml(date(createdAt))}</time></div><h3>${escapeHtml(item.title || 'Untitled report')}</h3><p class="account-report-description">${escapeHtml(excerpt)}</p><div class="account-report-location"><span aria-hidden="true">⌖</span><span>${escapeHtml(location)}</span></div></li>`;
+    }).join('');
+  }
+  async function loadReports() {
+    const requestId = ++reportsRequest;
+    myReports = [];
+    $('#reports-list').replaceChildren();
+    $('#reports-list').hidden = true;
+    $('#reports-filters').hidden = true;
+    $('#reports-count-all').textContent = '0';
+    $('#reports-count-active').textContent = '0';
+    $('#reports-count-resolved').textContent = '0';
+    if (!session) {
+      $('#reports-summary').textContent = 'Sign in to view your reports';
+      showReportsState('Your reports are private', 'Sign in to view reports submitted from your account. Reports are not available in guest mode.', [
+        { label: 'Sign in', auth: 'signin', className: 'primary-button' },
+        { label: 'Create account', auth: 'signup', className: 'secondary-button' }
+      ], 'access');
+      return;
+    }
+    if (!window.BincomData.isConfigured()) {
+      $('#reports-summary').textContent = 'Private reports are unavailable';
+      showReportsState('Reports are not connected', window.BincomData.configurationMessage(), [], 'error');
+      return;
+    }
+    $('#reports-summary').textContent = 'Loading your reports…';
+    showReportsState('Loading your reports', 'Fetching reports submitted from your account.', [], 'loading');
+    try {
+      const result = await window.BincomData.listReports();
+      if (requestId !== reportsRequest) return;
+      if (result.error) {
+        $('#reports-summary').textContent = 'Reports could not be refreshed';
+        showReportsState('We could not load your reports', 'Check your connection and try again.', [{ label: 'Try again', action: 'retry', className: 'secondary-button' }], 'error');
+        return;
+      }
+      myReports = Array.isArray(result.data) ? result.data : [];
+      if (!myReports.length) {
+        $('#reports-summary').textContent = '0 reports on this account';
+        showReportsState('No reports yet', 'Reports you submit from this account will appear here.', [{ label: 'Report an incident', action: 'create', className: 'primary-button' }]);
+        return;
+      }
+      $('#reports-filters').hidden = false;
+      renderMyReports();
+    } catch (_) {
+      if (requestId !== reportsRequest) return;
+      $('#reports-summary').textContent = 'Reports could not be refreshed';
+      showReportsState('We could not load your reports', 'Check your connection and try again.', [{ label: 'Try again', action: 'retry', className: 'secondary-button' }], 'error');
+    }
+  }
+
   document.addEventListener('focusin',(e)=>{if(e.target.matches('input:not([type="hidden"]),textarea')){document.body.classList.add('keyboard-open');setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),250);}});
   document.addEventListener('focusout',(e)=>{if(e.target.matches('input,textarea'))setTimeout(()=>{if(!document.activeElement.matches('input:not([type="hidden"]),textarea'))document.body.classList.remove('keyboard-open');},100);});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{if(window.visualViewport.height<window.innerHeight-140)document.body.classList.add('keyboard-open');else document.body.classList.remove('keyboard-open');});
-  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{$('#latitude').value=p.coords.latitude;$('#longitude').value=p.coords.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';markReportDraft();},()=>{$('#location-status').textContent='Location permission was not granted. You can enter a landmark instead.';},{enableHighAccuracy:false,timeout:10000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-status').textContent='GPS coordinates removed from this report.';markReportDraft();});
+  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#reports-state-actions').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.reportsAuth)openAuth('reports',button.dataset.reportsAuth);else if(button.dataset.reportsAction==='retry')loadReports();else if(button.dataset.reportsAction==='create')showScreen('report');});document.querySelectorAll('[data-reports-filter]').forEach((button)=>button.addEventListener('click',()=>{reportsFilter=button.dataset.reportsFilter;renderMyReports();}));$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{$('#latitude').value=p.coords.latitude;$('#longitude').value=p.coords.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';markReportDraft();},()=>{$('#location-status').textContent='Location permission was not granted. You can enter a landmark instead.';},{enableHighAccuracy:false,timeout:10000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-status').textContent='GPS coordinates removed from this report.';markReportDraft();});
   $('#startup-retry').addEventListener('click', initializeStartup);
   $('#startup-guest').addEventListener('click', () => showApplication('feed'));
   $('#welcome-account').addEventListener('click', () => openAuth('welcome'));

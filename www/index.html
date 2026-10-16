@@ -218,13 +218,24 @@
         </form>
       </section>
 
-      <section id="screen-reports" class="screen" aria-labelledby="reports-title" hidden>
-        <div class="section-heading">
-          <div><p class="eyebrow">Your account</p><h2 id="reports-title">My reports</h2><p class="section-lede">Reports submitted from your account.</p></div>
-          <button id="refresh-reports" class="icon-button" aria-label="Refresh reports" type="button">↻</button>
+      <section id="screen-reports" class="screen reports-screen" aria-labelledby="reports-title" hidden>
+        <div class="my-reports-heading">
+          <div><p class="eyebrow">Account activity</p><h2 id="reports-title">My reports</h2><p class="section-lede">Reports submitted from your account.</p></div>
+          <button id="refresh-reports" class="reports-refresh-button" aria-label="Refresh reports" type="button"><span aria-hidden="true">↻</span></button>
         </div>
-        <div id="reports-state" class="state-card" aria-live="polite"></div>
-        <ul id="reports-list" class="incident-list" aria-live="polite"></ul>
+        <p id="reports-summary" class="reports-summary" aria-live="polite">Sign in to view your reports</p>
+        <div id="reports-filters" class="reports-filter-bar" role="group" aria-label="Filter your reports" hidden>
+          <button class="reports-filter-button is-active" type="button" data-reports-filter="all" aria-pressed="true"><span>All</span><span id="reports-count-all" class="reports-filter-count">0</span></button>
+          <button class="reports-filter-button" type="button" data-reports-filter="active" aria-pressed="false"><span>Active</span><span id="reports-count-active" class="reports-filter-count">0</span></button>
+          <button class="reports-filter-button" type="button" data-reports-filter="resolved" aria-pressed="false"><span>Resolved</span><span id="reports-count-resolved" class="reports-filter-count">0</span></button>
+        </div>
+        <div id="reports-state" class="reports-state" role="status" aria-live="polite" hidden>
+          <span class="reports-state-icon" aria-hidden="true">i</span>
+          <h3 id="reports-state-title"></h3>
+          <p id="reports-state-copy"></p>
+          <div id="reports-state-actions" class="reports-state-actions"></div>
+        </div>
+        <ul id="reports-list" class="account-report-list" aria-live="polite" hidden></ul>
       </section>
     </main>
 
