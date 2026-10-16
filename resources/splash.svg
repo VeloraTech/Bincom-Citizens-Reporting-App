@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" role="img" aria-labelledby="title desc">
+  <title id="title">WeSignal splash screen</title>
+  <desc id="desc">WeSignal original symbol and the tagline See it. Report it. Improve it.</desc>
+  <rect width="1080" height="1920" fill="#FFFFFF" />
+  <image href="android/icon-512.png" x="284" y="675" width="512" height="512" />
+  <text x="540" y="1330" fill="#111111" text-anchor="middle" font-family="Arial, sans-serif" font-size="72" font-weight="700">WeSignal</text>
+  <text x="540" y="1410" fill="#1769E0" text-anchor="middle" font-family="Arial, sans-serif" font-size="36">See it. Report it. Improve it.</text>
+</svg>

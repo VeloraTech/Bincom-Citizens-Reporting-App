@@ -1,25 +1,16 @@
-# Bincom Citizens Reporting App
+# WeSignal App
+A Cordova Android app for browsing published community incidents and securely reporting issues. This branch implements **Milestone 2** on top of the merged Milestone 1 foundation.
 
-A Cordova Android foundation for transparent community issue reporting. This repository contains **Milestone 1 only**: the mobile shell, authenticated report-entry experience, Supabase data foundation, design documentation, and a reproducible Android debug build.
-
-## Implemented in Milestone 1
-
-- Cordova HTML/CSS/JS app in `www/` with dashboard, account, report form, and private reports view.
-- Supabase email/password sign-up, sign-in, persistent session state, and sign-out.
-- Clear setup messaging when `www/env.js` or Supabase configuration is missing; the app never fabricates a successful report.
-- Supabase `profiles` table linked to `auth.users` with own-profile RLS and automatic profile creation on sign-up.
-- Private report RLS: authenticated users can insert only their own reports and read only their own records. Anonymous writes, client-side report updates, and broad public reads are denied.
-- Android GitHub Actions workflow using supported SDK packages (`platform-tools`, `platforms;android-34`, and `build-tools;34.0.0`), source checks, Cordova requirements verification, debug APK build, and artifact upload.
-- Design system and interaction decisions in [`docs/design/DESIGN.md`](docs/design/DESIGN.md).
-
-## Scope boundary
-
-The app does not fabricate submitted reports, live civic data, staff workflows, public report publication, notifications, photo upload, or public moderation. Reports remain private to the signed-in reporter in Milestone 1. Without a configured Supabase project and signed-in user, submission and private report viewing remain unavailable. Later milestones are intentionally not implemented.
+## Milestone 2
+- First-launch welcome with Get started / Skip and persisted completion.
+- Public incident feed for guests and signed-in users, backed by Supabase `reports` rows where `is_public = true`.
+- Category filtering, honest configuration/loading/empty/error states, incident details and back navigation.
+- Real Supabase email/password sign-up, sign-in, sign-out, and session restoration.
+- Guest report gate with Login/Create account actions; existing report validation and explicit location permission flow preserved.
+- Secure additive migration: public reads only for explicitly published rows; client report inserts are always private and RLS-enforced.
 
 ## Local setup
-
 Requirements: Node.js 22, Java 17, Android SDK/API 35, and a Cordova-compatible Android toolchain.
-
 ```bash
 npm ci
 npm run check
@@ -27,32 +18,29 @@ npx cordova platform add android --no-save
 npx cordova requirements android
 npm run build:android
 ```
-
-For a browser preview:
-
-```bash
-npm start
-```
+For a browser preview: `npm start`
 
 ## Supabase setup
+1. Create a Supabase project and enable email/password authentication.
+2. Apply `supabase/migrations/20261016000000_initial_schema.sql`, then `supabase/migrations/20261017000000_public_incidents.sql`.
+3. Create local-only `www/env.js` with the public project URL and anon key. Never ship a service-role key.
 
-1. Create a Supabase project.
-2. Enable email/password authentication in the Supabase dashboard.
-3. Apply `supabase/migrations/20261016000000_initial_schema.sql` using the Supabase migration workflow.
-4. Copy `.env.example` values into a local environment file and expose them to the web bundle as `www/env.js` (this file is ignored):
+To publish a real incident, an authorized backend/admin workflow must set `is_public = true`; the client deliberately has no moderation or publication control. If none are published, the app shows an honest empty state rather than sample content.
 
-```js
-window.BINCOM_CONFIG = {
-  supabaseUrl: 'https://your-project.supabase.co',
-  supabaseAnonKey: 'your-public-anon-key'
-};
-```
+## Verification status
+`npm run check` validates JavaScript syntax. The Android workflow runs source checks, Cordova requirements, debug APK build, and artifact upload. This repository does not contain a configured Supabase project or credentials, so live auth/feed/report requests require the deployer's `www/env.js` and backend setup; missing configuration states are implemented and can be verified without credentials.
 
-Only the public anon key belongs in the app. Never ship a service-role key. Email confirmation may be required by the Supabase project settings; after sign-up, follow the confirmation email before signing in.
+## Security and scope
+No service-role key, local environment file, photo upload, push notification, moderation UI, or unrelated milestone work is included. Anonymous writes and private report reads remain denied by RLS. Do not merge or publish this branch without the repository's normal review workflow.
 
-## Repository conventions
+## WeSignal brand lock
+The product name and exact tagline are locked as **WeSignal** — **See it. Report it. Improve it.** The user-facing onboarding, public feed header, auth/report flow, app label, status bar, and launch visual use a restrained white, near-black, and primary-blue system without changing the Cordova package ID or Supabase security model.
 
-- Keep secrets out of Git; `.env.example` contains placeholders only.
-- Keep generated `platforms/` and `plugins/` out of Git; CI restores them from `package-lock.json`.
-- Use feature branches and regular fast-forward pushes; never force-push shared history.
-- Keep product behavior honest: unavailable backend capabilities must be shown as unavailable, not simulated.
+Brand assets are source-controlled at:
+- `resources/icon-original.png` — unchanged original WeSignal icon supplied for this app.
+- `resources/icon.svg` — SVG wrapper that references the supplied original artwork.
+- `resources/splash.svg` — white launch artwork using the original icon and exact tagline.
+- `resources/android/icon-512.png` — master raster launcher icon derived from the supplied artwork.
+- `resources/android/icon/drawable-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/icon.png` — configured legacy Android launcher variants.
+- `resources/android/adaptive/{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/{foreground,background}.png` — adaptive launcher layers.
+- `tools/generate-icons.py` — deterministic Pillow script; regenerate with `python3 tools/generate-icons.py` after installing Pillow (`python3 -m pip install Pillow`).

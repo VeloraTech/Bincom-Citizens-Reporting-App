@@ -1,120 +1,32 @@
 (function () {
   'use strict';
+  const $ = (s) => document.querySelector(s);
   const screens = [...document.querySelectorAll('.screen')];
-  const navItems = [...document.querySelectorAll('[data-screen]')];
-  const form = document.getElementById('report-form');
-  const message = document.getElementById('form-message');
-  const description = document.getElementById('description');
-  const count = document.getElementById('description-count');
-  const locationStatus = document.getElementById('location-status');
-  const reportsState = document.getElementById('reports-state');
-  const reportsList = document.getElementById('reports-list');
-  const authForm = document.getElementById('auth-form');
-  const authMessage = document.getElementById('auth-message');
-  const accountState = document.getElementById('account-state');
-  const signOut = document.getElementById('sign-out');
-  const labels = { submitted: 'Submitted', acknowledged: 'Acknowledged', in_progress: 'In progress', resolved: 'Resolved' };
-  let session = null;
-
-  function showScreen(name) {
-    screens.forEach((screen) => {
-      const active = screen.id === `screen-${name}`;
-      screen.hidden = !active;
-      screen.classList.toggle('is-active', active);
-    });
-    document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('is-selected', item.dataset.screen === name));
-    if (name === 'reports') loadReports();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-  navItems.forEach((item) => item.addEventListener('click', () => showScreen(item.dataset.screen)));
-  description.addEventListener('input', () => { count.textContent = description.value.length; });
-
-  function setMessage(text, type) { message.textContent = text; message.className = type ? `form-message ${type}` : 'form-message'; }
-  function setAuthMessage(text, type) { authMessage.textContent = text; authMessage.className = type ? `form-message ${type}` : 'form-message'; }
-  function validate(data) {
-    if (!data.title || data.title.trim().length < 3) return 'Add a short title with at least 3 characters.';
-    if (!data.category) return 'Choose a category.';
-    if (!data.description || data.description.trim().length < 10) return 'Add at least 10 characters describing the issue.';
-    return '';
-  }
-  function updateSession(nextSession) {
-    session = nextSession;
-    if (session) {
-      accountState.className = 'account-state signed-in';
-      accountState.textContent = `Signed in as ${session.user.email}`;
-      signOut.hidden = false;
-      authForm.hidden = true;
-    } else {
-      accountState.className = 'account-state';
-      accountState.textContent = window.BincomData.isConfigured() ? 'Sign in before submitting or viewing private reports.' : window.BincomData.configurationMessage();
-      signOut.hidden = true;
-      authForm.hidden = false;
-    }
-  }
-  accountState.addEventListener('click', () => showScreen('auth'));
-
-  document.getElementById('use-location').addEventListener('click', () => {
-    if (!navigator.geolocation) { locationStatus.textContent = 'Location is not available on this device.'; return; }
-    locationStatus.textContent = 'Requesting location permission…';
-    navigator.geolocation.getCurrentPosition((position) => {
-      document.getElementById('latitude').value = position.coords.latitude;
-      document.getElementById('longitude').value = position.coords.longitude;
-      locationStatus.textContent = 'Location added to this report.';
-    }, () => { locationStatus.textContent = 'Location permission was not granted. You can enter a landmark instead.'; }, { enableHighAccuracy: false, timeout: 10000 });
-  });
-
-  async function authenticate(action) {
-    setAuthMessage('', '');
-    const data = Object.fromEntries(new FormData(authForm).entries());
-    if (!data.email || !data.password || data.password.length < 6) { setAuthMessage('Enter a valid email and a password with at least 6 characters.', 'error'); return; }
-    const result = action === 'signup' ? await window.BincomData.signUp(data.email.trim(), data.password) : await window.BincomData.signIn(data.email.trim(), data.password);
-    if (result.error) { setAuthMessage(result.error.message, 'error'); return; }
-    if (action === 'signup' && !result.data.session) setAuthMessage('Account created. Check your email to confirm it, then sign in.', 'success');
-    else { updateSession(result.data.session); setAuthMessage('You are signed in.', 'success'); showScreen('home'); }
-  }
-  authForm.addEventListener('submit', (event) => { event.preventDefault(); authenticate('signin'); });
-  document.querySelector('[data-auth-action="signup"]').addEventListener('click', () => authenticate('signup'));
-  signOut.addEventListener('click', async () => { const result = await window.BincomData.signOut(); if (result.error) setAuthMessage(result.error.message, 'error'); else { updateSession(null); showScreen('home'); } });
-
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    setMessage('', '');
-    const data = Object.fromEntries(new FormData(form).entries());
-    const error = validate(data);
-    if (error) { setMessage(error, 'error'); return; }
-    if (!window.BincomData.isConfigured()) { setMessage(window.BincomData.configurationMessage() + ' Nothing was sent.', 'error'); return; }
-    if (!session) { setMessage('Sign in is required before submitting a report. No report was sent.', 'error'); showScreen('auth'); return; }
-    const payload = { title: data.title.trim(), category: data.category, description: data.description.trim(), location_label: data.location_label.trim() || null, latitude: data.latitude ? Number(data.latitude) : null, longitude: data.longitude ? Number(data.longitude) : null };
-    const result = await window.BincomData.createReport(payload);
-    if (result.error) { setMessage(`The report was not sent: ${result.error.message}`, 'error'); return; }
-    setMessage('Report submitted securely. You can find it in My reports.', 'success');
-    form.reset(); count.textContent = '0'; locationStatus.textContent = '';
-  });
-
-  async function loadReports() {
-    reportsList.innerHTML = '';
-    if (!window.BincomData.isConfigured()) { reportsState.hidden = false; reportsState.querySelector('p').textContent = window.BincomData.configurationMessage(); return; }
-    if (!session) { reportsState.hidden = false; reportsState.querySelector('p').textContent = 'Sign in to securely view reports submitted from this account.'; return; }
-    const result = await window.BincomData.listReports();
-    if (result.error || !result.data.length) { reportsState.hidden = false; return; }
-    reportsState.hidden = true;
-    result.data.forEach((report) => {
-      const li = document.createElement('li'); li.className = 'report-card';
-      const title = document.createElement('h3'); title.textContent = report.title;
-      const meta = document.createElement('div'); meta.className = 'report-meta';
-      const date = new Date(report.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      const location = document.createElement('span'); location.textContent = `${date}${report.location_label ? ` · ${report.location_label}` : ''}`;
-      const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = labels[report.status] || report.status;
-      meta.append(location, chip); li.append(title, meta); reportsList.appendChild(li);
-    });
-  }
-  document.getElementById('refresh-reports').addEventListener('click', loadReports);
-
-  (async function init() {
-    if (window.BincomData.isConfigured()) {
-      const result = await window.BincomData.getSession();
-      updateSession(result.data.session);
-      window.BincomData.onAuthStateChange((_event, nextSession) => updateSession(nextSession));
-    } else updateSession(null);
-  }());
+  const labels = { roads:'Roads & walkways', waste:'Waste & sanitation', water:'Water', power:'Power & lighting', safety:'Safety', other:'Other' };
+  const statuses = { submitted:'Submitted', acknowledged:'Acknowledged', in_progress:'In progress', resolved:'Resolved' };
+  let session = null; let activeFilter = 'all'; let incidents = []; let returnScreen = 'report'; let authBusy = false;
+  const escapeHtml = (v) => String(v || '').replace(/[&<>'"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const date = (v) => v ? new Date(v).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'Date unavailable';
+  const onboardingDone = () => { try { return localStorage.getItem('bincom.onboarding.complete') === 'true'; } catch (_) { return false; } };
+  const completeOnboarding = () => { try { localStorage.setItem('bincom.onboarding.complete','true'); } catch (_) {} $('#screen-onboarding').hidden=true; $('#app-shell').hidden=false; showScreen('feed'); loadFeed(); };
+  function showScreen(name) { screens.forEach((s) => { const on=s.id===`screen-${name}`; s.hidden=!on; s.classList.toggle('is-active',on); }); document.body.classList.toggle('form-active',name==='report'||name==='auth'); document.body.classList.remove('keyboard-open'); document.querySelectorAll('[data-screen]').forEach((n)=>n.classList.toggle('is-selected',n.dataset.screen===name)); if(name==='report') updateGate(); if(name==='reports') loadReports(); window.scrollTo({top:0,behavior:'smooth'}); }
+  function state(el,title,body,retry) { el.innerHTML=`<h3>${title}</h3><p>${body}</p>${retry?'<button class="secondary-button retry-button" type="button">Try again</button>':''}`; if(retry) el.querySelector('button').addEventListener('click',retry); }
+  function renderFilters() { const el=$('#category-filters'); el.innerHTML=['all',...Object.keys(labels)].map((k)=>`<button class="filter-chip${activeFilter===k?' active':''}" type="button" data-filter="${k}" aria-pressed="${activeFilter===k}">${k==='all'?'All incidents':labels[k]}</button>`).join(''); el.querySelectorAll('[data-filter]').forEach((b)=>b.addEventListener('click',()=>{activeFilter=b.dataset.filter;$('#reset-filter').hidden=activeFilter==='all';renderFilters();renderIncidents();})); }
+  function renderIncidents() { const list=$('#incident-list'); const rows=activeFilter==='all'?incidents:incidents.filter((i)=>i.category===activeFilter); list.innerHTML=rows.map((i)=>`<li class="incident-card"><button type="button" data-incident="${escapeHtml(i.id)}"><div class="incident-top"><span class="chip">${escapeHtml(labels[i.category]||i.category)}</span><span class="chip status-chip">${escapeHtml(statuses[i.status]||i.status||'Published')}</span></div><h3>${escapeHtml(i.title)}</h3><p class="incident-excerpt">${escapeHtml((i.description||'').slice(0,150))}${(i.description||'').length>150?'…':''}</p><div class="incident-meta"><span>${date(i.created_at)}</span>${i.location_label?`<span>· ${escapeHtml(i.location_label)}</span>`:''}<span class="arrow">→</span></div></button></li>`).join(''); list.querySelectorAll('[data-incident]').forEach((b)=>b.addEventListener('click',()=>openDetail(b.dataset.incident))); const st=$('#feed-state'); if(!rows.length) { st.hidden=false; state(st,'No incidents in this category','Try another category or reset the filter to see all published incidents.'); } else st.hidden=true; }
+  async function loadFeed() { const st=$('#feed-state'); st.hidden=false; st.innerHTML='<div class="skeleton" aria-label="Loading incidents"></div>'; $('#incident-list').innerHTML=''; if(!window.BincomData.isConfigured()) { state(st,'Public feed is not connected',window.BincomData.configurationMessage()); return; } const r=await window.BincomData.listPublicReports(); if(r.error) { state(st,'We could not load incidents','Check your connection and try again. Published incidents have not been replaced with sample content.',loadFeed); return; } incidents=r.data||[]; renderIncidents(); }
+  async function openDetail(id) { showScreen('detail'); const target=$('#detail-content'); target.innerHTML='<div class="state-card"><div class="skeleton"></div></div>'; const fallback=incidents.find((i)=>i.id===id); if(!fallback){state(target,'Incident unavailable','This published incident could not be found. Return to the feed and try again.');return;} const r=await window.BincomData.getPublicReport(id); const i=r.data||fallback; if(r.error&&!i){state(target,'Incident unavailable','This incident may no longer be published. Return to the feed and try again.');return;} target.innerHTML=`<article><div class="detail-hero"><span class="chip">${escapeHtml(labels[i.category]||i.category)}</span><h2 id="detail-title">${escapeHtml(i.title)}</h2><span class="detail-date">${date(i.created_at)}</span></div><div class="detail-body"><h3>Status</h3><p><span class="chip status-chip">${escapeHtml(statuses[i.status]||i.status||'Published')}</span></p><h3>What was reported</h3><p>${escapeHtml(i.description)}</p>${i.location_label?`<h3>Location</h3><p>${escapeHtml(i.location_label)}</p>`:''}</div></article>`; }
+  function authMessage(text,type){const n=$('#auth-message');n.textContent=text;n.className=type?`form-message ${type}`:'form-message';}
+  function updateSession(next){session=next||null;$('#sign-out').hidden=!session;$('#auth-form').hidden=!!session;$('#auth-title').textContent=session?'Your account':'Sign in to report';updateGate();}
+  function updateGate(){ $('#report-gate').hidden=!!session; }
+  function openAuth(from){returnScreen=from||'report';showScreen('auth');}
+  async function authenticate(action){if(authBusy)return;const d=Object.fromEntries(new FormData($('#auth-form')).entries());if(!d.email||!d.email.includes('@')||!d.password||d.password.length<6){authMessage('Enter a valid email and a password with at least 6 characters.','error');return;}authBusy=true;const bs=[...$('#auth-form').querySelectorAll('button')];bs.forEach((b)=>{b.disabled=true;b.dataset.label=b.textContent;b.textContent='Working…';});const r=action==='signup'?await window.BincomData.signUp(d.email.trim(),d.password):await window.BincomData.signIn(d.email.trim(),d.password);bs.forEach((b)=>{b.disabled=false;b.textContent=b.dataset.label;});authBusy=false;if(r.error){authMessage(r.error.message||'Authentication failed. Try again.','error');return;}if(action==='signup'&&!r.data.session){authMessage('Account created. Check your email to confirm it, then sign in.','success');return;}updateSession(r.data.session);authMessage('You are signed in.','success');showScreen(returnScreen);}
+  function formMessage(text,type){const n=$('#form-message');n.textContent=text;n.className=type?`form-message ${type}`:'form-message';}
+  function validate(d){if(!d.title||d.title.trim().length<3)return'Add a short title with at least 3 characters.';if(!d.category)return'Choose a category.';if(!d.description||d.description.trim().length<10)return'Add at least 10 characters describing the issue.';return'';}
+  async function submitReport(e){e.preventDefault();formMessage('','');const d=Object.fromEntries(new FormData($('#report-form')).entries());const err=validate(d);if(err){formMessage(err,'error');return;}if(!session){formMessage('Sign in is required before submitting a report. No report was sent.','error');openAuth('report');return;}if(!window.BincomData.isConfigured()){formMessage(window.BincomData.configurationMessage()+' Nothing was sent.','error');return;}const b=$('#report-form button[type="submit"]');b.disabled=true;b.textContent='Submitting…';const r=await window.BincomData.createReport({title:d.title.trim(),category:d.category,description:d.description.trim(),location_label:d.location_label.trim()||null,latitude:d.latitude?Number(d.latitude):null,longitude:d.longitude?Number(d.longitude):null});b.disabled=false;b.innerHTML='Submit report <span aria-hidden="true">→</span>';if(r.error){formMessage(`The report was not sent: ${r.error.message}`,'error');return;}formMessage('Report submitted securely. It is private until an authorized workflow publishes it.','success');$('#report-form').reset();$('#description-count').textContent='0';$('#location-status').textContent='';}
+  async function loadReports(){const st=$('#reports-state');$('#reports-list').innerHTML='';st.hidden=false;if(!session){state(st,'Sign in to view your reports','Your private submitted reports are only available to your account.');return;}if(!window.BincomData.isConfigured()){state(st,'Reports are not connected',window.BincomData.configurationMessage());return;}st.innerHTML='<div class="skeleton" aria-label="Loading reports"></div>';const r=await window.BincomData.listReports();if(r.error){state(st,'We could not load your reports','Check your connection and try again.',loadReports);return;}if(!r.data.length){state(st,'No reports yet','Reports you submit from this account will appear here.');return;}st.hidden=true;$('#reports-list').innerHTML=r.data.map((i)=>`<li class="incident-card"><div class="incident-top"><span class="chip">${escapeHtml(labels[i.category]||i.category)}</span><span class="chip status-chip">${escapeHtml(statuses[i.status]||i.status)}</span></div><h3>${escapeHtml(i.title)}</h3><div class="incident-meta"><span>${date(i.created_at)}</span>${i.location_label?`<span>· ${escapeHtml(i.location_label)}</span>`:''}</div></li>`).join('');}
+  document.addEventListener('focusin',(e)=>{if(e.target.matches('input:not([type="hidden"]),textarea')){document.body.classList.add('keyboard-open');setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),250);}});
+  document.addEventListener('focusout',(e)=>{if(e.target.matches('input,textarea'))setTimeout(()=>{if(!document.activeElement.matches('input:not([type="hidden"]),textarea'))document.body.classList.remove('keyboard-open');},100);});
+  if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{if(window.visualViewport.height<window.innerHeight-140)document.body.classList.add('keyboard-open');else document.body.classList.remove('keyboard-open');});
+  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>showScreen(returnScreen));$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#refresh-reports').addEventListener('click',loadReports);$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate('signin');});$('[data-auth-action="signup"]').addEventListener('click',()=>authenticate('signup'));$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{updateSession(null);showScreen('feed');}});$('#gate-login').addEventListener('click',()=>openAuth('report'));$('#gate-signup').addEventListener('click',()=>openAuth('report'));$('#report-form').addEventListener('submit',submitReport);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{$('#latitude').value=p.coords.latitude;$('#longitude').value=p.coords.longitude;$('#location-status').textContent='Location added to this report.';},()=>{$('#location-status').textContent='Location permission was not granted. You can enter a landmark instead.';},{enableHighAccuracy:false,timeout:10000});});
+  (async function init(){renderFilters();if(!onboardingDone())return;$('#screen-onboarding').hidden=true;$('#app-shell').hidden=false;showScreen('feed');loadFeed();if(window.BincomData.isConfigured()){const r=await window.BincomData.getSession();updateSession(r.data.session);window.BincomData.onAuthStateChange((_e,s)=>updateSession(s));}else updateSession(null);}());
 })();
