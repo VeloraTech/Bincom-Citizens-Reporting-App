@@ -102,7 +102,7 @@
       showStartupFailure(message);
     } finally { startupBusy = false; }
   }
-  function showScreen(name) { screens.forEach((s) => { const on=s.id===`screen-${name}`; s.hidden=!on; s.classList.toggle('is-active',on); }); const screenTitles={feed:'Explore',detail:'Incident details',auth:'Authentication',report:'Report an issue',reports:'My Reports'}; $('#header-screen-title').textContent=screenTitles[name]||'WeSignal'; document.body.classList.toggle('feed-screen-active',name==='feed'); document.body.classList.toggle('form-active',name==='report'||name==='auth'); document.body.classList.toggle('auth-screen-active',name==='auth'); document.body.classList.remove('keyboard-open'); document.querySelectorAll('[data-screen]').forEach((n)=>n.classList.toggle('is-selected',n.dataset.screen===name)); if(name==='report') updateGate(); if(name==='reports') loadReports(); window.scrollTo({top:0,behavior:'smooth'}); }
+  function showScreen(name) { screens.forEach((s) => { const on=s.id===`screen-${name}`; s.hidden=!on; s.classList.toggle('is-active',on); }); const screenTitles={feed:'Explore',detail:'Incident details',auth:'Authentication',report:'Report an issue',reports:'My Reports'}; $('#header-screen-title').textContent=screenTitles[name]||'WeSignal'; document.body.classList.toggle('feed-screen-active',name==='feed'); document.body.classList.toggle('report-screen-active',name==='report'); document.body.classList.toggle('form-active',name==='report'||name==='auth'); document.body.classList.toggle('auth-screen-active',name==='auth'); document.body.classList.remove('keyboard-open'); document.querySelectorAll('[data-screen]').forEach((n)=>n.classList.toggle('is-selected',n.dataset.screen===name)); if(name==='report') updateGate(); if(name==='reports') loadReports(); window.scrollTo({top:0,behavior:'smooth'}); }
   function state(el,title,body,retry) { el.innerHTML=`<h3>${title}</h3><p>${body}</p>${retry?'<button class="secondary-button retry-button" type="button">Try again</button>':''}`; if(retry) el.querySelector('button').addEventListener('click',retry); }
   function renderFilters() {
     const el = $('#category-filters');
@@ -260,13 +260,87 @@
     finally { button.disabled = false; }
   }
   function formMessage(text,type){const n=$('#form-message');n.textContent=text;n.className=type?`form-message ${type}`:'form-message';}
-  function validate(d){if(!d.title||d.title.trim().length<3)return'Add a short title with at least 3 characters.';if(!d.category)return'Choose a category.';if(!d.description||d.description.trim().length<10)return'Add at least 10 characters describing the issue.';return'';}
-  async function submitReport(e){e.preventDefault();formMessage('','');const d=Object.fromEntries(new FormData($('#report-form')).entries());const err=validate(d);if(err){formMessage(err,'error');return;}if(!session){formMessage('Sign in is required before submitting a report. No report was sent.','error');openAuth('report');return;}if(!window.BincomData.isConfigured()){formMessage(window.BincomData.configurationMessage()+' Nothing was sent.','error');return;}const b=$('#report-form button[type="submit"]');b.disabled=true;b.textContent='Submitting…';const r=await window.BincomData.createReport({title:d.title.trim(),category:d.category,description:d.description.trim(),location_label:d.location_label.trim()||null,latitude:d.latitude?Number(d.latitude):null,longitude:d.longitude?Number(d.longitude):null});b.disabled=false;b.innerHTML='Submit report <span aria-hidden="true">→</span>';if(r.error){formMessage(`The report was not sent: ${r.error.message}`,'error');return;}formMessage('Report submitted securely. It is private until an authorized workflow publishes it.','success');$('#report-form').reset();$('#description-count').textContent='0';$('#location-status').textContent='';}
+  function markReportDraft() {
+    $('#report-progress-state').textContent = 'Not submitted';
+    if ($('#form-message').classList.contains('success')) formMessage('', '');
+  }
+  function setReportCategory(value) {
+    const select = $('#category');
+    select.value = value || '';
+    document.querySelectorAll('[data-report-category]').forEach((button) => {
+      const selected = button.dataset.reportCategory === value;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-checked', String(selected));
+      button.tabIndex = selected ? 0 : (value ? -1 : (button.dataset.reportCategory === 'roads' ? 0 : -1));
+    });
+  }
+  function validate(d) {
+    if (!d.title || d.title.trim().length < 3) return 'Add a short title with at least 3 characters.';
+    if (d.title.trim().length > 120) return 'The title must be 120 characters or fewer.';
+    if (!Object.hasOwn(labels, d.category)) return 'Choose an incident category.';
+    if (!d.description || d.description.trim().length < 10) return 'Add at least 10 characters describing the issue.';
+    if (d.description.trim().length > 2000) return 'The description must be 2,000 characters or fewer.';
+    if (d.location_label && d.location_label.trim().length > 240) return 'The location must be 240 characters or fewer.';
+    return '';
+  }
+  async function submitReport(e) {
+    e.preventDefault();
+    formMessage('', '');
+    const form = $('#report-form');
+    const data = Object.fromEntries(new FormData(form).entries());
+    const validationError = validate(data);
+    if (validationError) {
+      formMessage(validationError, 'error');
+      if (!data.category) $('[data-report-category]').focus();
+      else if (!data.title || data.title.trim().length < 3) $('#title').focus();
+      else if (!data.description || data.description.trim().length < 10) $('#description').focus();
+      return;
+    }
+    if (!session) {
+      formMessage('Sign in is required before submitting a report. No report was sent.', 'error');
+      openAuth('report');
+      return;
+    }
+    if (!window.BincomData.isConfigured()) {
+      formMessage(window.BincomData.configurationMessage() + ' Nothing was sent.', 'error');
+      return;
+    }
+    const button = $('#report-form button[type="submit"]');
+    button.disabled = true;
+    button.innerHTML = '<span class="report-submit-spinner" aria-hidden="true"></span> Submitting report…';
+    try {
+      const result = await window.BincomData.createReport({
+        title: data.title.trim(),
+        category: data.category,
+        description: data.description.trim(),
+        location_label: data.location_label.trim() || null,
+        latitude: data.latitude ? Number(data.latitude) : null,
+        longitude: data.longitude ? Number(data.longitude) : null
+      });
+      if (result.error) {
+        formMessage(`The report was not sent: ${result.error.message}`, 'error');
+        return;
+      }
+      formMessage('Report submitted securely. It is private until an authorized workflow publishes it.', 'success');
+      form.reset();
+      setReportCategory('');
+      $('#report-progress-state').textContent = 'Submitted · private';
+      $('#title-count').textContent = '0';
+      $('#description-count').textContent = '0';
+      $('#location-status').textContent = '';
+      $('#clear-location').hidden = true;
+    } catch (error) {
+      formMessage(`Submission could not be confirmed: ${error && error.message ? error.message : 'Check your connection, then review My Reports before trying again.'}`, 'error');
+    } finally {
+      button.disabled = false;
+      button.innerHTML = '<span aria-hidden="true">↑</span> Submit incident report';
+    }
+  }
   async function loadReports(){const st=$('#reports-state');$('#reports-list').innerHTML='';st.hidden=false;if(!session){state(st,'Sign in to view your reports','Your private submitted reports are only available to your account.');return;}if(!window.BincomData.isConfigured()){state(st,'Reports are not connected',window.BincomData.configurationMessage());return;}st.innerHTML='<div class="skeleton" aria-label="Loading reports"></div>';const r=await window.BincomData.listReports();if(r.error){state(st,'We could not load your reports','Check your connection and try again.',loadReports);return;}if(!r.data.length){state(st,'No reports yet','Reports you submit from this account will appear here.');return;}st.hidden=true;$('#reports-list').innerHTML=r.data.map((i)=>`<li class="incident-card"><div class="incident-top"><span class="chip">${escapeHtml(labels[i.category]||i.category)}</span><span class="chip status-chip">${escapeHtml(statuses[i.status]||i.status)}</span></div><h3>${escapeHtml(i.title)}</h3><div class="incident-meta"><span>${date(i.created_at)}</span>${i.location_label?`<span>· ${escapeHtml(i.location_label)}</span>`:''}</div></li>`).join('');}
   document.addEventListener('focusin',(e)=>{if(e.target.matches('input:not([type="hidden"]),textarea')){document.body.classList.add('keyboard-open');setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),250);}});
   document.addEventListener('focusout',(e)=>{if(e.target.matches('input,textarea'))setTimeout(()=>{if(!document.activeElement.matches('input:not([type="hidden"]),textarea'))document.body.classList.remove('keyboard-open');},100);});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{if(window.visualViewport.height<window.innerHeight-140)document.body.classList.add('keyboard-open');else document.body.classList.remove('keyboard-open');});
-  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{$('#latitude').value=p.coords.latitude;$('#longitude').value=p.coords.longitude;$('#location-status').textContent='Location added to this report.';},()=>{$('#location-status').textContent='Location permission was not granted. You can enter a landmark instead.';},{enableHighAccuracy:false,timeout:10000});});
+  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{$('#latitude').value=p.coords.latitude;$('#longitude').value=p.coords.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';markReportDraft();},()=>{$('#location-status').textContent='Location permission was not granted. You can enter a landmark instead.';},{enableHighAccuracy:false,timeout:10000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-status').textContent='GPS coordinates removed from this report.';markReportDraft();});
   $('#startup-retry').addEventListener('click', initializeStartup);
   $('#startup-guest').addEventListener('click', () => showApplication('feed'));
   $('#welcome-account').addEventListener('click', () => openAuth('welcome'));

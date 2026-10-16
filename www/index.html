@@ -167,36 +167,54 @@
         </div>
       </section>
 
-      <section id="screen-report" class="screen narrow-screen" aria-labelledby="report-title" hidden>
-        <button id="report-back" class="back-button" type="button">← &nbsp;Back</button>
-        <div class="section-heading">
-          <div><p class="eyebrow">New report</p><h2 id="report-title">Report a community issue</h2><p class="section-lede">Share clear details so others can understand the issue.</p></div>
+      <section id="screen-report" class="screen narrow-screen report-screen" aria-labelledby="report-title" hidden>
+        <button id="report-back" class="back-button" type="button"><span aria-hidden="true">←</span> Back to Explore</button>
+        <div class="report-intro">
+          <p class="eyebrow">Community reporting</p>
+          <h2 id="report-title">Report an incident</h2>
+          <p class="section-lede">Share clear details so your community can understand the issue.</p>
         </div>
+        <div class="report-progress" aria-label="Report submission status"><span><span class="report-progress-dot" aria-hidden="true"></span>Three details</span><span id="report-progress-state">Not submitted</span></div>
         <div id="report-gate" class="gate-card" hidden>
           <span class="gate-icon" aria-hidden="true">i</span>
           <div><h3>Sign in to submit</h3><p>You can browse public reports as a guest. Sign in or create an account to submit this report.</p>
             <div class="gate-actions"><button id="gate-login" class="primary-button" type="button">Sign in</button><button id="gate-signup" class="secondary-button" type="button">Create account</button></div>
           </div>
         </div>
-        <form id="report-form" novalidate>
-          <label for="title">What is the issue?<span aria-hidden="true">*</span></label>
-          <input id="title" name="title" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Streetlight is out" required>
-          <p class="field-hint">Use a short, specific title.</p>
-          <label for="category">Category<span aria-hidden="true">*</span></label>
-          <select id="category" name="category" required>
-            <option value="" selected disabled>Choose a category</option>
-            <option value="roads">Roads &amp; walkways</option><option value="waste">Waste &amp; sanitation</option><option value="water">Water</option><option value="power">Power &amp; lighting</option><option value="safety">Safety</option><option value="other">Other</option>
-          </select>
-          <label for="description">What happened?<span aria-hidden="true">*</span></label>
-          <textarea id="description" name="description" rows="5" maxlength="2000" placeholder="Describe what you saw and when you noticed it." required></textarea>
-          <div class="character-count"><span id="description-count">0</span>/2000</div>
-          <label for="location-label">Where is it?</label>
-          <input id="location-label" name="location_label" type="text" maxlength="240" placeholder="Street, landmark, or area">
-          <button class="secondary-button location-button" type="button" id="use-location">Use my current location</button>
-          <input id="latitude" name="latitude" type="hidden"><input id="longitude" name="longitude" type="hidden">
-          <p id="location-status" class="field-hint" aria-live="polite"></p>
+        <form id="report-form" class="report-form" novalidate>
+          <section class="report-step" aria-labelledby="report-category-heading">
+            <div class="report-step-heading"><span class="report-step-number" aria-hidden="true">1</span><div><h3 id="report-category-heading">Select incident category</h3><p>Choose the closest match.</p></div><span class="report-required">Required</span></div>
+            <div id="category-grid" class="report-category-grid" role="radiogroup" aria-labelledby="report-category-heading">
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="0" data-report-category="roads"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">≋</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Roads &amp; walkways</strong><small>Roads, paths, potholes</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="waste"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">♻</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Waste &amp; sanitation</strong><small>Waste, litter, sanitation</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="water"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">◉</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Water</strong><small>Leaks, supply, drainage</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="power"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">ϟ</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Power &amp; lighting</strong><small>Streetlights, power issues</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="safety"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">◇</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Safety</strong><small>Public hazards</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="other"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">•••</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Other</strong><small>Another community issue</small></button>
+            </div>
+            <select id="category" name="category" class="report-native-select" aria-hidden="true" tabindex="-1" required>
+              <option value="" selected disabled>Choose a category</option>
+              <option value="roads">Roads &amp; walkways</option><option value="waste">Waste &amp; sanitation</option><option value="water">Water</option><option value="power">Power &amp; lighting</option><option value="safety">Safety</option><option value="other">Other</option>
+            </select>
+          </section>
+          <section class="report-step" aria-labelledby="report-specifics-heading">
+            <div class="report-step-heading"><span class="report-step-number" aria-hidden="true">2</span><div><h3 id="report-specifics-heading">Incident specifics</h3><p>Clear details help others understand what happened.</p></div></div>
+            <div class="report-field"><label for="title">Incident title<span aria-hidden="true">*</span></label><input id="title" name="title" type="text" maxlength="120" autocomplete="off" placeholder="Brief headline of the incident" required><div class="report-field-foot"><span>Use a short, specific title.</span><span><span id="title-count">0</span>/120</span></div></div>
+            <div class="report-field"><label for="description">Detailed description<span aria-hidden="true">*</span></label><textarea id="description" name="description" rows="5" maxlength="2000" placeholder="Describe what you saw and when you noticed it." required></textarea><div class="report-field-foot"><span>Include useful details and nearby landmarks.</span><span><span id="description-count">0</span>/2000</span></div></div>
+          </section>
+          <section class="report-step" aria-labelledby="report-location-heading">
+            <div class="report-step-heading"><span class="report-step-number" aria-hidden="true">3</span><div><h3 id="report-location-heading">Location</h3><p>Add a landmark or optionally use your device location.</p></div><span class="report-optional">Optional</span></div>
+            <div class="report-field"><label for="location-label">Street, landmark, or area</label><input id="location-label" name="location_label" type="text" maxlength="240" placeholder="e.g. Street name or nearby landmark"></div>
+            <button class="secondary-button location-button report-location-button" type="button" id="use-location"><span aria-hidden="true">⌖</span> Use my current location</button>
+            <input id="latitude" name="latitude" type="hidden"><input id="longitude" name="longitude" type="hidden">
+            <p id="location-status" class="field-hint report-location-status" aria-live="polite"></p>
+            <button id="clear-location" class="report-clear-location" type="button" hidden>Remove GPS coordinates</button>
+            <p class="report-location-note">GPS is optional. If used, your coordinates are included with this report. Submitted reports are private by default and are not published automatically.</p>
+          </section>
+          <aside class="report-privacy-note"><span class="report-privacy-icon" aria-hidden="true">i</span><p><strong>Private by default</strong>Your report is tied to your signed-in account and is not published automatically.</p></aside>
           <div id="form-message" class="form-message" role="alert" aria-live="polite"></div>
-          <button class="primary-button full-width" type="submit">Submit report</button>
+          <button class="primary-button full-width report-submit-button" type="submit"><span aria-hidden="true">↑</span> Submit incident report</button>
+          <p class="report-submit-note">Review your details before submitting. You can browse public reports without an account.</p>
         </form>
       </section>
 
