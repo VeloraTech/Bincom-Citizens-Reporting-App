@@ -7,6 +7,9 @@
   <meta name="description" content="See it. Report it. Improve it.">
   <title>WeSignal</title>
   <link rel="stylesheet" href="css/app.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <section id="startup-splash" class="startup-splash" aria-label="Starting WeSignal">
@@ -34,15 +37,27 @@
   </section>
 
   <section id="screen-onboarding" class="onboarding" aria-labelledby="welcome-title" hidden>
-    <div class="onboarding-art"><img class="brand-lockup-icon" src="images/wesignal-icon.png" alt=""><span class="onboarding-brand-name">WeSignal</span></div>
-    <div class="onboarding-copy">
-      <p class="eyebrow">Community reporting</p>
-      <h1 id="welcome-title">See it. Report it. Improve it.</h1>
-      <p>Browse issues reported in your community. Sign in when you’re ready to report one yourself.</p>
-    </div>
-    <div class="onboarding-actions">
-      <button id="get-started" class="primary-button full-width" type="button">Get started</button>
-      <button id="skip-onboarding" class="text-button" type="button">Skip</button>
+    <header class="welcome-header">
+      <div class="welcome-header-brand">
+        <img src="images/wesignal-icon.png" alt="">
+        <h1 id="welcome-title">Welcome</h1>
+      </div>
+      <button id="welcome-account" class="header-account" type="button" aria-label="Sign in"><span class="account-icon" aria-hidden="true"></span></button>
+    </header>
+    <div class="welcome-layout">
+      <div class="welcome-skip-row"><button id="skip-onboarding" class="welcome-skip" type="button">Skip</button></div>
+      <div class="welcome-main">
+        <div class="welcome-branding">
+          <div class="welcome-logo"><img src="images/wesignal-icon.png" alt=""></div>
+          <h2>WeSignal</h2>
+          <p class="welcome-tagline">See it. Report it. Improve it.</p>
+          <p class="welcome-description">Report local safety and community issues across Nigeria, track verification, and stay informed on nearby incidents.</p>
+        </div>
+        <div class="welcome-actions">
+          <button id="get-started" class="welcome-primary" type="button">Get Started</button>
+          <button id="welcome-signin" class="welcome-signin" type="button">Already have an account? <span>Sign In</span></button>
+        </div>
+      </div>
     </div>
   </section>
 

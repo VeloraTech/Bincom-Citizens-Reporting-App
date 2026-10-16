@@ -42,27 +42,37 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .startup-error > p { margin: 0; color: #42464C; font-size: 13px; line-height: 1.5; }
 .startup-error-actions { display: flex; flex-direction: column; gap: 9px; margin-top: 13px; }
 .startup-error-actions button { width: 100%; }
-.onboarding { min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding: max(32px, env(safe-area-inset-top)) 26px max(28px, env(safe-area-inset-bottom)); background: #FFFFFF; }
-.onboarding-art { width: 100%; max-width: 520px; min-height: 96px; margin: 0 auto 34px; display: flex; align-items: center; gap: 12px; }
-.onboarding-art::before { display: none; }
-.brand-symbol, .signal-ring, .signal-dot { display: none; }
-.onboarding-art::after { content: none; }
+.onboarding { min-height: 100svh; display: flex; flex-direction: column; justify-content: flex-start; overflow-y: auto; padding: max(8px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: #FFFFFF; }
+.onboarding { font-family: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.welcome-header { width: 100%; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.welcome-header-brand { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.welcome-header-brand img { width: 32px; height: 32px; flex: 0 0 auto; object-fit: contain; }
+.welcome-header-brand h1 { margin: 0; color: var(--ink); font-size: 16px; font-weight: 650; }
+.welcome-header-brand h1, .welcome-branding h2, .welcome-tagline, .welcome-skip, .welcome-primary { font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.welcome-layout { width: 100%; max-width: 640px; flex: 1; display: flex; flex-direction: column; margin: 0 auto; }
+.welcome-skip-row { min-height: 56px; display: flex; align-items: center; justify-content: flex-end; }
+.welcome-skip { min-width: 48px; min-height: 44px; padding: 8px 12px; border: 0; color: #003D8E; background: transparent; font-size: 14px; font-weight: 650; }
+.welcome-main { width: 100%; flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 12px 0 0; }
+.welcome-branding { width: 100%; max-width: 384px; margin: auto 0; padding: 8px 0 26px; text-align: center; }
+.welcome-logo { width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin: 0 auto 22px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 2px 12px #11111112; }
+.welcome-logo img { width: 80px; height: 80px; object-fit: contain; }
+.welcome-branding h2 { margin: 0 0 5px; color: var(--ink); font-size: 28px; line-height: 1.22; letter-spacing: -.035em; font-weight: 700; }
+.welcome-tagline { margin: 0 0 16px; color: var(--ink); font-size: 19px; line-height: 1.35; font-weight: 650; }
+.welcome-description { max-width: 330px; margin: 0 auto; color: #737784; font-size: 15px; line-height: 1.55; }
+.welcome-actions { width: 100%; max-width: 384px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 0 10px; }
+.welcome-primary { width: 100%; min-height: 48px; padding: 12px 16px; border: 0; border-radius: 10px; color: #FFFFFF; background: #1254B7; box-shadow: 0 2px 5px #003D8E22; font-size: 14px; font-weight: 650; }
+.welcome-primary:active { background: #003D8E; }
+.welcome-signin { min-height: 44px; padding: 8px 12px; border: 0; color: #737784; background: transparent; font-size: 14px; }
+.welcome-signin span { color: #0057C2; font-weight: 650; }
 .brand-lockup { display: flex; align-items: center; gap: 10px; }
 .brand-lockup-icon { width: 42px; height: 42px; flex: 0 0 auto; object-fit: contain; }
-.onboarding-art .brand-lockup-icon { width: 78px; height: 78px; }
-.onboarding-brand-name { color: var(--ink); font-size: 24px; line-height: 1; letter-spacing: -.045em; font-weight: 750; }
-.onboarding-copy, .onboarding-actions { width: 100%; max-width: 520px; margin-left: auto; margin-right: auto; }
-.onboarding-copy { margin-top: 0; margin-bottom: 36px; }
 .eyebrow { margin: 0 0 12px; color: var(--blue); font-size: 11px; line-height: 1.3; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
-.onboarding h1 { max-width: 440px; margin: 0 0 16px; font-size: clamp(38px, 10vw, 54px); line-height: 1.02; letter-spacing: -.055em; font-weight: 730; }
-.onboarding-copy p:not(.eyebrow) { max-width: 430px; margin: 0; color: var(--muted); font-size: 16px; line-height: 1.55; }
 .full-width { width: 100%; }
 .primary-button, .secondary-button { min-height: 48px; padding: 12px 17px; border: 1px solid transparent; border-radius: 8px; font-weight: 650; line-height: 1.25; }
 .primary-button { color: #FFFFFF; background: var(--blue); }
 .primary-button:hover { background: #115CC8; }
 .secondary-button { color: var(--ink); background: #FFFFFF; border-color: #C9CDD2; }
 .text-button { padding: 13px 14px; border: 0; color: var(--blue); background: transparent; font-weight: 650; }
-.onboarding .text-button { display: block; margin: 7px auto 0; }
 .app-header { padding: calc(15px + env(safe-area-inset-top)) 22px 15px; background: #FFFFFF; border-bottom: 1px solid var(--line); }
 .header-inner, .app-main { width: 100%; max-width: 680px; margin: 0 auto; }
 .header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -158,7 +168,7 @@ body.keyboard-open { scroll-padding-bottom: 40vh; }
 @keyframes screen-in { from { opacity: .6; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (min-width: 600px) { .app-header { padding-right: max(22px, calc((100% - 640px) / 2)); padding-left: max(22px, calc((100% - 640px) / 2)); } }
-@media (max-height: 700px) { .onboarding { justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top)); } .onboarding-art { min-height: 62px; margin-bottom: 22px; } .onboarding-copy { margin-bottom: 24px; } }
+@media (max-height: 700px) { .welcome-skip-row { min-height: 44px; } .welcome-main { padding-top: 4px; } .welcome-branding { padding-bottom: 18px; } .welcome-logo, .welcome-logo img { width: 68px; height: 68px; } .welcome-logo { margin-bottom: 15px; } .welcome-tagline { margin-bottom: 11px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition: none !important; } }
 
 .icon-button { width: 40px; height: 40px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: #FFFFFF; font-size: 19px; }
