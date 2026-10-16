@@ -66,10 +66,10 @@
       <div class="header-inner">
         <div class="header-row">
           <div class="brand-lockup">
-            <img class="brand-lockup-icon" src="images/wesignal-icon.png" alt="">
-            <div>
-            <p class="eyebrow">Community reports</p>
-              <div class="wordmark" aria-label="WeSignal"><strong>We</strong><span>Signal</span></div>
+            <img class="brand-lockup-icon" src="images/wesignal-icon.png" alt="WeSignal app icon">
+            <div class="header-brand-copy">
+              <p class="header-brand-name">WeSignal</p>
+              <h1 id="header-screen-title">Explore</h1>
             </div>
           </div>
           <button id="header-account" class="header-account" type="button" aria-label="Open account"><span class="account-icon" aria-hidden="true"></span></button>
@@ -78,26 +78,34 @@
     </header>
 
     <main id="app" class="app-main">
-      <section id="screen-feed" class="screen" aria-labelledby="feed-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">Public feed</p>
-            <h2 id="feed-title">Community reports</h2>
-            <p class="section-lede">Browse reports made public by the community.</p>
+      <section id="screen-feed" class="screen explore-screen" aria-labelledby="feed-title">
+        <div class="feed-context" aria-label="Feed context">
+          <div class="feed-context-location"><span class="feed-live-dot" aria-hidden="true"></span><span>Public incidents</span><span class="feed-context-divider">·</span><span class="feed-context-secondary">Community feed</span></div>
+          <span class="feed-context-tag"><span aria-hidden="true">◈</span> Civic Feed</span>
+        </div>
+        <section class="feed-controls" aria-label="Search and filter public incidents">
+          <div class="feed-search-wrap">
+            <span class="feed-search-icon" aria-hidden="true">⌕</span>
+            <input id="incident-search" type="search" autocomplete="off" placeholder="Search incidents, streets, landmarks…" aria-label="Search public incidents">
+            <button id="clear-search" class="feed-clear-search" type="button" aria-label="Clear search" hidden>×</button>
           </div>
-        </div>
-        <button class="hero-card" type="button" data-screen="report">
-          <span class="hero-icon" aria-hidden="true">+</span>
-          <span><strong>Report an issue</strong><small>Sign in is required to submit a report.</small></span>
-          <span class="arrow" aria-hidden="true">→</span>
-        </button>
-        <div class="filter-heading">
-          <h3>Filter by category</h3>
-          <button id="reset-filter" class="text-button small" type="button" hidden>Clear</button>
-        </div>
-        <div id="category-filters" class="filter-row" role="group" aria-label="Incident categories"></div>
-        <div id="feed-state" class="state-card" aria-live="polite"></div>
-        <ul id="incident-list" class="incident-list" aria-live="polite"></ul>
+          <div class="feed-filter-heading">
+            <h2 id="feed-title">Latest incidents</h2>
+            <button id="reset-filter" class="text-button small" type="button" hidden>Clear filters</button>
+          </div>
+          <div id="category-filters" class="filter-row feed-filter-row" role="group" aria-label="Incident categories"></div>
+        </section>
+        <section class="feed-stream" aria-label="Public incident feed">
+          <p id="feed-result-count" class="feed-results" aria-live="polite"></p>
+          <div id="feed-state" class="state-card" aria-live="polite"></div>
+          <ul id="incident-list" class="incident-list feed-incident-list" aria-live="polite"></ul>
+        </section>
+        <section class="feed-report-callout" aria-label="Report a new issue">
+          <span class="feed-callout-icon" aria-hidden="true">＋</span>
+          <div><strong>Spot a new incident?</strong><small>Help your community by submitting a report.</small></div>
+          <button type="button" data-screen="report">Report issue <span aria-hidden="true">→</span></button>
+        </section>
+        <footer class="feed-footer">Browse public reports. Sign in to submit an incident.</footer>
       </section>
 
       <section id="screen-detail" class="screen" aria-labelledby="detail-title" hidden>

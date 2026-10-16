@@ -247,3 +247,77 @@ body.auth-screen-active .app-main { max-width: 680px; padding: 0 20px calc(24px 
 @media (max-width: 360px) { body.auth-screen-active .app-main { padding-right: 15px; padding-left: 15px; } .auth-topbar { margin-right: -15px; margin-left: -15px; padding-right: 13px; padding-left: 13px; } .auth-guest-compact { padding-right: 9px; padding-left: 9px; font-size: 11px; } .auth-trust-card { gap: 6px; padding: 9px 6px; } .auth-trust-card small { font-size: 8px; } }
 @media (max-height: 700px) { .auth-hero { margin: 9px 0 13px; } .auth-hero p { margin-top: 5px; } .auth-tabs { margin-bottom: 12px; } .auth-form { gap: 10px; } .auth-divider { margin: 15px 0 11px; } .auth-trust-grid { margin-top: 12px; } }
 @media (prefers-reduced-motion: reduce) { .auth-spinner { animation-duration: 1.5s; } }
+
+
+/* Stitch-inspired Explore feed, backed only by published report data */
+body.feed-screen-active { background: #FCF9F8; }
+body.feed-screen-active .app-header { position: sticky; top: 0; z-index: 5; padding: max(7px, env(safe-area-inset-top)) 17px 8px; border-bottom: 1px solid #EBE7E7; background: rgb(252 249 248 / 94%); box-shadow: 0 1px 8px rgb(0 0 0 / 4%); backdrop-filter: blur(14px); }
+body.feed-screen-active .app-main { max-width: 680px; min-height: calc(100svh - 64px); padding: 7px 16px calc(100px + env(safe-area-inset-bottom)); background: #FCF9F8; }
+body.feed-screen-active .brand-lockup { gap: 9px; }
+body.feed-screen-active .brand-lockup-icon { width: 34px; height: 34px; }
+.header-brand-copy { min-width: 0; }
+.header-brand-name { margin: 0 0 2px; color: #0057C2; font: 600 10px/1.1 "Hanken Grotesk", sans-serif; letter-spacing: .11em; text-transform: uppercase; }
+.header-brand-copy h1 { overflow: hidden; margin: 0; color: #1C1B1B; font: 600 19px/1.15 "Hanken Grotesk", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+body.feed-screen-active .header-account { width: 42px; height: 42px; border: 0; border-radius: 50%; background: transparent; }
+body.feed-screen-active .header-account:active { background: #EBE7E7; }
+.explore-screen { color: #1C1B1B; font-family: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.feed-context { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 39px; }
+.feed-context-location { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 7px 11px; border-radius: 999px; color: #1C1B1B; background: #F0EDEC; font: 600 11px/1.2 "Hanken Grotesk", sans-serif; }
+.feed-live-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #0057C2; box-shadow: 0 0 0 3px rgb(0 87 194 / 12%); }
+.feed-context-divider { color: #737784; }
+.feed-context-secondary { overflow: hidden; color: #737784; font: 500 10px/1.2 "Public Sans", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.feed-context-tag { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; padding: 6px 9px; border-radius: 999px; color: #004398; background: #D9E2FF; font: 600 9px/1.2 "Hanken Grotesk", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.feed-context-tag span { font-size: 12px; }
+.feed-controls { padding-top: 9px; }
+.feed-search-wrap { position: relative; display: flex; align-items: center; min-height: 46px; margin-bottom: 15px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 1px 5px rgb(0 0 0 / 6%); }
+.feed-search-icon { width: 40px; flex: 0 0 auto; color: #737784; font-size: 24px; line-height: 1; text-align: center; transform: rotate(-15deg); }
+.feed-search-wrap input { width: 100%; min-width: 0; min-height: 46px; margin: 0; padding: 10px 4px 10px 0; border: 0; border-radius: 12px; outline: 0; color: #1C1B1B; background: transparent; font: 12px/1.4 "Public Sans", sans-serif; box-shadow: none; }
+.feed-search-wrap input::placeholder { color: #737784; opacity: .9; }
+.feed-search-wrap:focus-within { box-shadow: 0 0 0 2px rgb(0 87 194 / 20%); }
+.feed-search-wrap input:focus { border: 0; box-shadow: none; }
+.feed-clear-search { width: 39px; height: 42px; flex: 0 0 auto; border: 0; color: #737784; background: transparent; font-size: 23px; }
+.feed-filter-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.feed-filter-heading h2 { margin: 0; color: #1C1B1B; font: 600 15px/1.25 "Hanken Grotesk", sans-serif; }
+.feed-filter-heading .text-button.small { min-height: 32px; margin: 0; padding: 4px 6px; color: #0057C2; }
+.feed-filter-row { gap: 7px; overflow-x: auto; padding: 1px 0 7px; scrollbar-width: none; }
+.feed-filter-row::-webkit-scrollbar { display: none; }
+.feed-filter-row .filter-chip { min-height: 34px; display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; padding: 6px 10px; border: 0; border-radius: 10px; color: #424753; background: #FFFFFF; box-shadow: 0 1px 4px rgb(0 0 0 / 5%); font: 600 10px/1.2 "Hanken Grotesk", sans-serif; }
+.feed-filter-row .filter-chip.active { color: #003D8E; background: #D9E2FF; box-shadow: 0 1px 5px rgb(0 61 142 / 10%); }
+.feed-filter-count { color: #737784; font: 500 9px/1 "Public Sans", sans-serif; }
+.feed-filter-row .filter-chip.active .feed-filter-count { color: #004398; }
+.feed-stream { margin-top: 3px; }
+.feed-results { margin: 0; padding: 1px 1px 8px; color: #737784; font-size: 10px; }
+.feed-results:empty { display: none; }
+.feed-stream > .state-card { margin-top: 12px; border: 1px solid #EBE7E7; border-radius: 13px; background: #FFFFFF; font-size: 12px; }
+.feed-incident-list { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.feed-incident-item { margin: 0; padding: 0; }
+.feed-incident-card { padding: 14px; border: 1px solid rgb(28 27 27 / 4%); border-radius: 14px; background: #FFFFFF; box-shadow: 0 2px 8px rgb(0 0 0 / 4%); }
+.feed-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.feed-category-chip { max-width: 48%; overflow: hidden; padding: 5px 8px; border-radius: 6px; color: #003D8E; background: #D9E2FF; font: 600 9px/1.15 "Hanken Grotesk", sans-serif; letter-spacing: .04em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.feed-card-meta time { color: #737784; font-size: 9px; white-space: nowrap; }
+.feed-status-chip { max-width: 100%; overflow: hidden; margin-left: auto; padding: 5px 8px; border-radius: 999px; color: #424753; background: #F0EDEC; font: 600 9px/1.15 "Public Sans", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.feed-incident-card h3 { margin: 11px 0 0; color: #1C1B1B; font: 600 18px/1.25 "Hanken Grotesk", sans-serif; letter-spacing: -.01em; }
+.feed-card-location { display: flex; align-items: flex-start; gap: 6px; margin: 5px 0 0; color: #424753; font-size: 11px; line-height: 1.4; }
+.feed-card-location span { flex: 0 0 auto; color: #0057C2; font-size: 17px; line-height: 1; }
+.feed-card-description { margin: 9px 0 0; color: #424753; font-size: 12px; line-height: 1.5; }
+.feed-details-button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: 13px; padding: 8px 12px; border: 0; border-radius: 9px; color: #FFFFFF; background: #0057C2; font: 600 11px/1.2 "Hanken Grotesk", sans-serif; }
+.feed-details-button:active { background: #003D8E; }
+.feed-details-button span { font-size: 15px; }
+.feed-report-callout { display: flex; align-items: center; gap: 10px; margin-top: 17px; padding: 12px; border-radius: 13px; color: #FFFFFF; background: linear-gradient(110deg, #003D8E, #0057C2 60%, #1254B7); box-shadow: 0 3px 10px rgb(0 61 142 / 18%); }
+.feed-callout-icon { width: 38px; height: 38px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #FFFFFF; background: rgb(255 255 255 / 16%); font-size: 24px; }
+.feed-report-callout > div { min-width: 0; flex: 1; }
+.feed-report-callout strong, .feed-report-callout small { display: block; }
+.feed-report-callout strong { font: 600 12px/1.25 "Hanken Grotesk", sans-serif; }
+.feed-report-callout small { margin-top: 3px; color: rgb(255 255 255 / 82%); font-size: 9px; line-height: 1.35; }
+.feed-report-callout button { min-height: 36px; flex: 0 0 auto; padding: 8px 10px; border: 0; border-radius: 8px; color: #003D8E; background: #FFFFFF; font: 600 10px/1.2 "Hanken Grotesk", sans-serif; }
+.feed-report-callout button span { padding-left: 3px; }
+.feed-footer { margin-top: 13px; color: #737784; font-size: 9px; line-height: 1.45; text-align: center; }
+body.feed-screen-active .bottom-nav { justify-content: space-around; gap: 0; padding: 8px 18px max(8px, env(safe-area-inset-bottom)); background: rgb(252 249 248 / 94%); box-shadow: 0 -2px 12px rgb(0 0 0 / 5%); backdrop-filter: blur(14px); }
+body.feed-screen-active .nav-item, body.feed-screen-active .nav-report { width: 70px; min-width: 58px; border: 0; background: transparent; }
+body.feed-screen-active .nav-item { color: #424753; }
+body.feed-screen-active .nav-item.is-selected { color: #0057C2; }
+body.feed-screen-active .nav-report { width: 54px; height: 54px; min-height: 54px; gap: 0; margin-top: -22px; padding: 0; border: 0; border-radius: 50%; color: #FFFFFF; background: #0057C2; box-shadow: 0 4px 12px rgb(0 87 194 / 32%); }
+body.feed-screen-active .nav-report > span { font-size: 27px; line-height: 28px; }
+body.feed-screen-active .nav-report small { position: absolute; margin-top: 67px; color: #0057C2; font: 600 9px/1.2 "Hanken Grotesk", sans-serif; }
+body.feed-screen-active .nav-item small { font: 500 9px/1.2 "Public Sans", sans-serif; }
+@media (max-width: 360px) { body.feed-screen-active .app-main { padding-right: 12px; padding-left: 12px; } .feed-context-location { gap: 5px; padding-right: 8px; padding-left: 8px; } .feed-context-secondary { font-size: 9px; } .feed-context-tag { gap: 4px; padding: 6px 7px; font-size: 8px; } .feed-report-callout { gap: 7px; padding: 10px 8px; } .feed-report-callout button { padding-right: 7px; padding-left: 7px; } }
