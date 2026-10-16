@@ -13,7 +13,7 @@ A calm, trustworthy public window into community incidents, paired with a secure
 - **Respectful urgency:** status and category pills are scannable without alarmist color.
 
 ## Visual system
-- Primary blue: `#1769E0`; deep ink: `#142B4A`; background: `#F7FAFF`; surface: `#FFFFFF`; border: `#DFE8F5`; soft blue: `#E6F0FF`.
+- Primary blue: `#1769E0`; near-black text: `#111111`; white background and surfaces: `#FFFFFF`; neutral dividers: `#E6E7E9`. Use blue primarily for actions and selected states, not as a decorative panel color.
 - System sans-serif with tight, bold headings and 14–16px readable body copy.
 - Public incident cards use a blue signal edge, category chip, status chip, excerpt, date, and location when present. Inline SVG/CSS icons are used instead of emoji glyphs.
 
@@ -26,4 +26,4 @@ The report CTA remains visible from the feed. Guests see an in-context account g
 `reports.is_public` is false by default. The client can read only published rows for the public feed; report inserts are forced private in both client payload and RLS. No service-role key, moderation UI, photo upload, or private report data is exposed.
 
 ## WeSignal brand lock
-The approved mark is a crisp vector symbol built from three rising blue forms and a sweeping lower form suggesting collective action. The wordmark uses **We** in deep navy and **Signal** in primary blue. The exact product tagline is **“See it. Report it. Improve it.”** The launcher uses the symbol only so text remains legible at small sizes; the onboarding and app header carry the wordmark and tagline.
+The approved icon is the original image supplied for this project at `resources/icon-original.png`. Preserve its exact symbol, colors, and proportions; do not redraw it or substitute the former generated mark. The launcher uses the supplied symbol, while onboarding and the app header carry the WeSignal wordmark. The exact product tagline is **“See it. Report it. Improve it.”**

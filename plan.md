@@ -27,7 +27,7 @@ The schema change is intentionally minimal: add `is_public boolean not null defa
 - **Typography System:** system sans-serif; 30px display title, 24px section title, 16px card title, 14–16px body, 12px metadata.
 - **Brand Essence:** WeSignal is a clear public window into community issues and a secure way for residents to submit one; trustworthy, direct, neighborly.
 - **Brand Voice:** “See what your community is tracking.” / “An account keeps your report connected to you.”
-- **Wordmark & Logo:** existing BC monogram retained as a compact outlined mark.
+- **Wordmark & Logo:** use the original WeSignal icon image supplied for this project; preserve its artwork and proportions in launcher and splash assets.
 - **Signature Brand Color:** `#1769E0` primary blue.
 
 ## Security and data rules
