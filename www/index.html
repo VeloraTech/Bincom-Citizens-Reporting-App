@@ -25,12 +25,10 @@
   <main id="app" class="app-main">
     <section id="screen-home" class="screen is-active" aria-labelledby="home-title">
       <div class="section-heading">
-        <div>
-          <p class="eyebrow">YOUR COMMUNITY</p>
-          <h2 id="home-title">What needs attention?</h2>
-        </div>
+        <div><p class="eyebrow">YOUR COMMUNITY</p><h2 id="home-title">What needs attention?</h2></div>
         <span class="status-dot" title="App ready"><span aria-hidden="true"></span>Ready</span>
       </div>
+      <button id="account-state" class="account-state" type="button" aria-live="polite"></button>
       <button class="hero-card" type="button" data-screen="report">
         <span class="hero-icon" aria-hidden="true">+</span>
         <span><strong>Start a report</strong><small>Capture an issue while it is fresh.</small></span>
@@ -38,7 +36,7 @@
       </button>
       <div class="info-banner" role="note">
         <span class="info-icon" aria-hidden="true">i</span>
-        <p><strong>Reports are personal by default.</strong> Connect Supabase to securely save reports to your account.</p>
+        <p><strong>Reports are personal by default.</strong> Sign in to securely save and view reports from this account.</p>
       </div>
       <div class="section-heading compact"><h3>How it works</h3></div>
       <ol class="steps-list">
@@ -48,6 +46,20 @@
       </ol>
     </section>
 
+    <section id="screen-auth" class="screen" aria-labelledby="auth-title" hidden>
+      <div class="section-heading"><div><p class="eyebrow">YOUR ACCOUNT</p><h2 id="auth-title">Sign in to report</h2></div></div>
+      <p class="auth-intro">Use your email and password to keep reports private to your account.</p>
+      <form id="auth-form" novalidate>
+        <label for="auth-email">Email<span aria-hidden="true">*</span></label>
+        <input id="auth-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+        <label for="auth-password">Password<span aria-hidden="true">*</span></label>
+        <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters">
+        <div id="auth-message" class="form-message" role="alert" aria-live="polite"></div>
+        <div class="auth-actions"><button class="primary-button" type="submit" data-auth-action="signin">Sign in</button><button class="secondary-button" type="button" data-auth-action="signup">Create account</button></div>
+      </form>
+      <button id="sign-out" class="secondary-button sign-out" type="button" hidden>Sign out</button>
+    </section>
+
     <section id="screen-report" class="screen" aria-labelledby="report-title" hidden>
       <div class="section-heading"><div><p class="eyebrow">NEW FIELD NOTE</p><h2 id="report-title">Start a report</h2></div></div>
       <form id="report-form" novalidate>
@@ -55,12 +67,7 @@
         <input id="title" name="title" type="text" maxlength="120" placeholder="e.g. Streetlight is out" required>
         <p class="field-hint">Keep it short and specific.</p>
         <label for="category">Category<span aria-hidden="true">*</span></label>
-        <select id="category" name="category" required>
-          <option value="" selected disabled>Choose a category</option>
-          <option value="roads">Roads &amp; walkways</option><option value="waste">Waste &amp; sanitation</option>
-          <option value="water">Water</option><option value="power">Power &amp; lighting</option>
-          <option value="safety">Safety</option><option value="other">Other</option>
-        </select>
+        <select id="category" name="category" required><option value="" selected disabled>Choose a category</option><option value="roads">Roads &amp; walkways</option><option value="waste">Waste &amp; sanitation</option><option value="water">Water</option><option value="power">Power &amp; lighting</option><option value="safety">Safety</option><option value="other">Other</option></select>
         <label for="description">What happened?<span aria-hidden="true">*</span></label>
         <textarea id="description" name="description" rows="5" maxlength="2000" placeholder="Add useful details, such as when you noticed it..." required></textarea>
         <div class="character-count"><span id="description-count">0</span>/2000</div>
@@ -70,13 +77,13 @@
         <input id="latitude" name="latitude" type="hidden"><input id="longitude" name="longitude" type="hidden">
         <p id="location-status" class="field-hint" aria-live="polite"></p>
         <div id="form-message" class="form-message" role="alert" aria-live="polite"></div>
-        <button class="primary-button full-width" type="submit">Review report <span aria-hidden="true">→</span></button>
+        <button class="primary-button full-width" type="submit">Submit report <span aria-hidden="true">→</span></button>
       </form>
     </section>
 
     <section id="screen-reports" class="screen" aria-labelledby="reports-title" hidden>
       <div class="section-heading"><div><p class="eyebrow">YOUR NOTES</p><h2 id="reports-title">Submitted reports</h2></div><button id="refresh-reports" class="icon-button" aria-label="Refresh reports">↻</button></div>
-      <div id="reports-state" class="empty-state"><span class="empty-icon" aria-hidden="true">◌</span><h3>No reports to show yet</h3><p>Connect Supabase and sign in to securely view reports submitted from this account.</p></div>
+      <div id="reports-state" class="empty-state"><span class="empty-icon" aria-hidden="true">◌</span><h3>No reports to show yet</h3><p>Sign in to securely view reports submitted from this account.</p></div>
       <ul id="reports-list" class="reports-list" aria-live="polite"></ul>
     </section>
   </main>
