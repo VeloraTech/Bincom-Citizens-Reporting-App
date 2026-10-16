@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#123C3A">
+  <meta name="description" content="Report and track community issues with clarity.">
+  <title>Bincom Citizens Reporting</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <p class="eyebrow">FIELD NOTE <span aria-hidden="true">/</span> CIVIC CARE</p>
+      <div class="header-row">
+        <div>
+          <h1>Make your place better.</h1>
+          <p class="header-copy">A clear path from noticing an issue to seeing it addressed.</p>
+        </div>
+        <div class="brand-mark" aria-label="Bincom Citizens Reporting">BC</div>
+      </div>
+    </div>
+  </header>
+
+  <main id="app" class="app-main">
+    <section id="screen-home" class="screen is-active" aria-labelledby="home-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">YOUR COMMUNITY</p>
+          <h2 id="home-title">What needs attention?</h2>
+        </div>
+        <span class="status-dot" title="App ready"><span aria-hidden="true"></span>Ready</span>
+      </div>
+      <button class="hero-card" type="button" data-screen="report">
+        <span class="hero-icon" aria-hidden="true">+</span>
+        <span><strong>Start a report</strong><small>Capture an issue while it is fresh.</small></span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
+      <div class="info-banner" role="note">
+        <span class="info-icon" aria-hidden="true">i</span>
+        <p><strong>Reports are personal by default.</strong> Connect Supabase to securely save reports to your account.</p>
+      </div>
+      <div class="section-heading compact"><h3>How it works</h3></div>
+      <ol class="steps-list">
+        <li><span>01</span><div><strong>Describe</strong><p>Tell us what you see and where it is.</p></div></li>
+        <li><span>02</span><div><strong>Submit</strong><p>Review your details before sending.</p></div></li>
+        <li><span>03</span><div><strong>Follow up</strong><p>Keep your reference and watch the status.</p></div></li>
+      </ol>
+    </section>
+
+    <section id="screen-report" class="screen" aria-labelledby="report-title" hidden>
+      <div class="section-heading"><div><p class="eyebrow">NEW FIELD NOTE</p><h2 id="report-title">Start a report</h2></div></div>
+      <form id="report-form" novalidate>
+        <label for="title">What is the issue?<span aria-hidden="true">*</span></label>
+        <input id="title" name="title" type="text" maxlength="120" placeholder="e.g. Streetlight is out" required>
+        <p class="field-hint">Keep it short and specific.</p>
+        <label for="category">Category<span aria-hidden="true">*</span></label>
+        <select id="category" name="category" required>
+          <option value="" selected disabled>Choose a category</option>
+          <option value="roads">Roads &amp; walkways</option><option value="waste">Waste &amp; sanitation</option>
+          <option value="water">Water</option><option value="power">Power &amp; lighting</option>
+          <option value="safety">Safety</option><option value="other">Other</option>
+        </select>
+        <label for="description">What happened?<span aria-hidden="true">*</span></label>
+        <textarea id="description" name="description" rows="5" maxlength="2000" placeholder="Add useful details, such as when you noticed it..." required></textarea>
+        <div class="character-count"><span id="description-count">0</span>/2000</div>
+        <label for="location-label">Where is it?</label>
+        <input id="location-label" name="location_label" type="text" maxlength="240" placeholder="Landmark, street, or area">
+        <button class="secondary-button location-button" type="button" id="use-location">Use my current location <span aria-hidden="true">⌖</span></button>
+        <input id="latitude" name="latitude" type="hidden"><input id="longitude" name="longitude" type="hidden">
+        <p id="location-status" class="field-hint" aria-live="polite"></p>
+        <div id="form-message" class="form-message" role="alert" aria-live="polite"></div>
+        <button class="primary-button full-width" type="submit">Review report <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+
+    <section id="screen-reports" class="screen" aria-labelledby="reports-title" hidden>
+      <div class="section-heading"><div><p class="eyebrow">YOUR NOTES</p><h2 id="reports-title">Submitted reports</h2></div><button id="refresh-reports" class="icon-button" aria-label="Refresh reports">↻</button></div>
+      <div id="reports-state" class="empty-state"><span class="empty-icon" aria-hidden="true">◌</span><h3>No reports to show yet</h3><p>Connect Supabase and sign in to securely view reports submitted from this account.</p></div>
+      <ul id="reports-list" class="reports-list" aria-live="polite"></ul>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Primary navigation">
+    <button class="nav-item is-selected" type="button" data-screen="home"><span aria-hidden="true">⌂</span><small>Home</small></button>
+    <button class="nav-report" type="button" data-screen="report"><span aria-hidden="true">+</span><small>Report</small></button>
+    <button class="nav-item" type="button" data-screen="reports"><span aria-hidden="true">▤</span><small>My reports</small></button>
+  </nav>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="env.js" onerror="this.remove()"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

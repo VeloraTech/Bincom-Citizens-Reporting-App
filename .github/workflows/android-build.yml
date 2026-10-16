@@ -1,9 +1,8 @@
-
 name: Build Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'milestone-*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -15,7 +14,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -23,37 +21,41 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;36.0.0"
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run source checks
+        run: npm run check
+
+      - name: Add Cordova Android platform
+        run: npx cordova platform add android --no-save
 
       - name: Verify Cordova Android requirements
         run: npx cordova requirements android
 
       - name: Build debug APK
-        run: npx cordova build android --debug
+        run: npm run build:android
 
-      - name: Upload assessment deliverables
+      - name: Upload APK and web bundle
         uses: actions/upload-artifact@v4
         with:
-          name: citizen-reporting-assessment
+          name: citizen-reporting-android-debug
           path: |
             platforms/android/app/build/outputs/apk/debug/app-debug.apk
             www/

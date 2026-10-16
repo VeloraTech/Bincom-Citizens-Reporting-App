@@ -1,0 +1,21 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.bincom.citizensreporting" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+  <name>Bincom Citizens Reporting</name>
+  <description>A transparent way to report and track community issues.</description>
+  <author email="hello@bincom.com" href="https://github.com/VeloraTech/Bincom-Citizens-Reporting-App">Bincom</author>
+  <content src="index.html" />
+  <access origin="https://*.supabase.co" />
+  <access origin="https://cdn.jsdelivr.net" />
+  <allow-navigation href="https://*.supabase.co/*" />
+  <allow-intent href="http://*/*" />
+  <allow-intent href="https://*/*" />
+  <preference name="AndroidXEnabled" value="true" />
+  <preference name="GradlePluginGoogleServicesEnabled" value="false" />
+  <preference name="DisallowOverscroll" value="true" />
+  <preference name="StatusBarStyle" value="lightcontent" />
+  <preference name="StatusBarBackgroundColor" value="#123C3A" />
+  <platform name="android">
+    <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" android:usesCleartextTraffic="false" xmlns:android="http://schemas.android.com/apk/res/android" />
+    <allow-intent href="market:*" />
+  </platform>
+</widget>

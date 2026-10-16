@@ -1,0 +1,38 @@
+{
+  "name": "bincom-citizens-reporting-app",
+  "displayName": "Bincom Citizens Reporting",
+  "version": "1.0.0",
+  "description": "A transparent mobile foundation for reporting and tracking community issues.",
+  "main": "index.js",
+  "scripts": {
+    "prepare": "cordova prepare",
+    "start": "cordova serve",
+    "check": "node --check www/js/app.js && node --check www/js/supabase.js",
+    "build:android": "cordova platform add android --no-save && cordova build android --debug"
+  },
+  "keywords": [
+    "cordova",
+    "citizen-reporting",
+    "community"
+  ],
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0",
+    "cordova-android": "^13.0.0",
+    "cordova-plugin-device": "^2.1.0",
+    "cordova-plugin-statusbar": "^3.0.0"
+  },
+  "devDependencies": {
+    "cordova": "^12.0.0"
+  },
+  "cordova": {
+    "platforms": [
+      "android"
+    ],
+    "plugins": {
+      "cordova-plugin-device": {},
+      "cordova-plugin-statusbar": {}
+    }
+  }
+}
