@@ -1,101 +1,13 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#123C3A">
-  <meta name="description" content="Report and track community issues with clarity.">
-  <title>Bincom Citizens Reporting</title>
-  <link rel="stylesheet" href="css/app.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#1769E0"><meta name="description" content="Browse community incidents and report issues with clarity."><title>Bincom Citizens Reporting</title><link rel="stylesheet" href="css/app.css"></head>
 <body>
-  <header class="app-header">
-    <div class="header-inner">
-      <p class="eyebrow">FIELD NOTE <span aria-hidden="true">/</span> CIVIC CARE</p>
-      <div class="header-row">
-        <div>
-          <h1>Make your place better.</h1>
-          <p class="header-copy">A clear path from noticing an issue to seeing it addressed.</p>
-        </div>
-        <div class="brand-mark" aria-label="Bincom Citizens Reporting">BC</div>
-      </div>
-    </div>
-  </header>
-
-  <main id="app" class="app-main">
-    <section id="screen-home" class="screen is-active" aria-labelledby="home-title">
-      <div class="section-heading">
-        <div><p class="eyebrow">YOUR COMMUNITY</p><h2 id="home-title">What needs attention?</h2></div>
-        <span class="status-dot" title="App ready"><span aria-hidden="true"></span>Ready</span>
-      </div>
-      <button id="account-state" class="account-state" type="button" aria-live="polite"></button>
-      <button class="hero-card" type="button" data-screen="report">
-        <span class="hero-icon" aria-hidden="true">+</span>
-        <span><strong>Start a report</strong><small>Capture an issue while it is fresh.</small></span>
-        <span class="arrow" aria-hidden="true">→</span>
-      </button>
-      <div class="info-banner" role="note">
-        <span class="info-icon" aria-hidden="true">i</span>
-        <p><strong>Reports are personal by default.</strong> Sign in to securely save and view reports from this account.</p>
-      </div>
-      <div class="section-heading compact"><h3>How it works</h3></div>
-      <ol class="steps-list">
-        <li><span>01</span><div><strong>Describe</strong><p>Tell us what you see and where it is.</p></div></li>
-        <li><span>02</span><div><strong>Submit</strong><p>Review your details before sending.</p></div></li>
-        <li><span>03</span><div><strong>Follow up</strong><p>Keep your reference and watch the status.</p></div></li>
-      </ol>
-    </section>
-
-    <section id="screen-auth" class="screen" aria-labelledby="auth-title" hidden>
-      <div class="section-heading"><div><p class="eyebrow">YOUR ACCOUNT</p><h2 id="auth-title">Sign in to report</h2></div></div>
-      <p class="auth-intro">Use your email and password to keep reports private to your account.</p>
-      <form id="auth-form" novalidate>
-        <label for="auth-email">Email<span aria-hidden="true">*</span></label>
-        <input id="auth-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
-        <label for="auth-password">Password<span aria-hidden="true">*</span></label>
-        <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters">
-        <div id="auth-message" class="form-message" role="alert" aria-live="polite"></div>
-        <div class="auth-actions"><button class="primary-button" type="submit" data-auth-action="signin">Sign in</button><button class="secondary-button" type="button" data-auth-action="signup">Create account</button></div>
-      </form>
-      <button id="sign-out" class="secondary-button sign-out" type="button" hidden>Sign out</button>
-    </section>
-
-    <section id="screen-report" class="screen" aria-labelledby="report-title" hidden>
-      <div class="section-heading"><div><p class="eyebrow">NEW FIELD NOTE</p><h2 id="report-title">Start a report</h2></div></div>
-      <form id="report-form" novalidate>
-        <label for="title">What is the issue?<span aria-hidden="true">*</span></label>
-        <input id="title" name="title" type="text" maxlength="120" placeholder="e.g. Streetlight is out" required>
-        <p class="field-hint">Keep it short and specific.</p>
-        <label for="category">Category<span aria-hidden="true">*</span></label>
-        <select id="category" name="category" required><option value="" selected disabled>Choose a category</option><option value="roads">Roads &amp; walkways</option><option value="waste">Waste &amp; sanitation</option><option value="water">Water</option><option value="power">Power &amp; lighting</option><option value="safety">Safety</option><option value="other">Other</option></select>
-        <label for="description">What happened?<span aria-hidden="true">*</span></label>
-        <textarea id="description" name="description" rows="5" maxlength="2000" placeholder="Add useful details, such as when you noticed it..." required></textarea>
-        <div class="character-count"><span id="description-count">0</span>/2000</div>
-        <label for="location-label">Where is it?</label>
-        <input id="location-label" name="location_label" type="text" maxlength="240" placeholder="Landmark, street, or area">
-        <button class="secondary-button location-button" type="button" id="use-location">Use my current location <span aria-hidden="true">⌖</span></button>
-        <input id="latitude" name="latitude" type="hidden"><input id="longitude" name="longitude" type="hidden">
-        <p id="location-status" class="field-hint" aria-live="polite"></p>
-        <div id="form-message" class="form-message" role="alert" aria-live="polite"></div>
-        <button class="primary-button full-width" type="submit">Submit report <span aria-hidden="true">→</span></button>
-      </form>
-    </section>
-
-    <section id="screen-reports" class="screen" aria-labelledby="reports-title" hidden>
-      <div class="section-heading"><div><p class="eyebrow">YOUR NOTES</p><h2 id="reports-title">Submitted reports</h2></div><button id="refresh-reports" class="icon-button" aria-label="Refresh reports">↻</button></div>
-      <div id="reports-state" class="empty-state"><span class="empty-icon" aria-hidden="true">◌</span><h3>No reports to show yet</h3><p>Sign in to securely view reports submitted from this account.</p></div>
-      <ul id="reports-list" class="reports-list" aria-live="polite"></ul>
-    </section>
-  </main>
-
-  <nav class="bottom-nav" aria-label="Primary navigation">
-    <button class="nav-item is-selected" type="button" data-screen="home"><span aria-hidden="true">⌂</span><small>Home</small></button>
-    <button class="nav-report" type="button" data-screen="report"><span aria-hidden="true">+</span><small>Report</small></button>
-    <button class="nav-item" type="button" data-screen="reports"><span aria-hidden="true">▤</span><small>My reports</small></button>
-  </nav>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="env.js" onerror="this.remove()"></script>
-  <script src="js/supabase.js"></script>
-  <script src="js/app.js"></script>
-</body>
-</html>
+<section id="screen-onboarding" class="onboarding" aria-labelledby="welcome-title"><div class="onboarding-art" aria-hidden="true"><span class="signal-ring ring-one"></span><span class="signal-ring ring-two"></span><span class="signal-dot"></span><span class="brand-mark">BC</span></div><div class="onboarding-copy"><p class="eyebrow">BINCOM CITIZENS REPORTING</p><h1 id="welcome-title">See what your community is tracking.</h1><p>Browse published incidents near you, then create a secure report when you spot something that needs attention.</p></div><div class="onboarding-actions"><button id="get-started" class="primary-button full-width" type="button">Get started <span class="icon" aria-hidden="true">→</span></button><button id="skip-onboarding" class="text-button" type="button">Skip for now</button></div></section>
+<div id="app-shell" hidden><header class="app-header"><div class="header-inner"><div class="header-row"><div><p class="eyebrow light">CIVIC SIGNAL <span aria-hidden="true">/</span> OPEN VIEW</p><h1>Bincom <span>Citizens Reporting</span></h1></div><button id="header-account" class="header-account" type="button" aria-label="Open account"><span class="account-icon" aria-hidden="true"></span></button></div></div></header>
+<main id="app" class="app-main"><section id="screen-feed" class="screen" aria-labelledby="feed-title"><div class="section-heading"><div><p class="eyebrow">PUBLIC INCIDENTS</p><h2 id="feed-title">What needs attention?</h2><p class="section-lede">Published reports from your community.</p></div><span class="live-badge"><span></span>Live view</span></div><button class="hero-card" type="button" data-screen="report"><span class="hero-icon" aria-hidden="true">+</span><span><strong>Report an issue</strong><small>An account keeps your report connected to you.</small></span><span class="arrow" aria-hidden="true">→</span></button><div class="filter-heading"><h3>Browse by category</h3><button id="reset-filter" class="text-button small" type="button" hidden>Reset</button></div><div id="category-filters" class="filter-row" role="group" aria-label="Incident categories"></div><div id="feed-state" class="state-card" aria-live="polite"></div><ul id="incident-list" class="incident-list" aria-live="polite"></ul></section>
+<section id="screen-detail" class="screen" aria-labelledby="detail-title" hidden><button id="detail-back" class="back-button" type="button"><span aria-hidden="true">←</span> Back to incidents</button><div id="detail-content"></div></section>
+<section id="screen-auth" class="screen narrow-screen" aria-labelledby="auth-title" hidden><button id="auth-back" class="back-button" type="button"><span aria-hidden="true">←</span> Back</button><div class="section-heading"><div><p class="eyebrow">YOUR ACCOUNT</p><h2 id="auth-title">Sign in to report</h2></div></div><p class="auth-intro">Create an account to submit a report and keep it connected to you. Browsing incidents never requires an account.</p><form id="auth-form" novalidate><label for="auth-email">Email<span aria-hidden="true">*</span></label><input id="auth-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com"><label for="auth-password">Password<span aria-hidden="true">*</span></label><input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"><div id="auth-message" class="form-message" role="alert" aria-live="polite"></div><div class="auth-actions"><button class="primary-button" type="submit" data-auth-action="signin">Sign in</button><button class="secondary-button" type="button" data-auth-action="signup">Create account</button></div></form><button id="sign-out" class="secondary-button sign-out" type="button" hidden>Sign out</button></section>
+<section id="screen-report" class="screen narrow-screen" aria-labelledby="report-title" hidden><button id="report-back" class="back-button" type="button"><span aria-hidden="true">←</span> Back</button><div class="section-heading"><div><p class="eyebrow">NEW REPORT</p><h2 id="report-title">Help make it visible.</h2><p class="section-lede">A few clear details help the right people act.</p></div></div><div id="report-gate" class="gate-card" hidden><span class="gate-icon" aria-hidden="true">↗</span><div><h3>An account is required</h3><p>Sign in or create an account before submitting a report. Your draft stays on this screen.</p><div class="gate-actions"><button id="gate-login" class="primary-button" type="button">Log in</button><button id="gate-signup" class="secondary-button" type="button">Create account</button></div></div></div><form id="report-form" novalidate><label for="title">What is the issue?<span aria-hidden="true">*</span></label><input id="title" name="title" type="text" maxlength="120" placeholder="e.g. Streetlight is out" required><p class="field-hint">Keep it short and specific.</p><label for="category">Category<span aria-hidden="true">*</span></label><select id="category" name="category" required><option value="" selected disabled>Choose a category</option><option value="roads">Roads &amp; walkways</option><option value="waste">Waste &amp; sanitation</option><option value="water">Water</option><option value="power">Power &amp; lighting</option><option value="safety">Safety</option><option value="other">Other</option></select><label for="description">What happened?<span aria-hidden="true">*</span></label><textarea id="description" name="description" rows="5" maxlength="2000" placeholder="Add useful details, such as when you noticed it..." required></textarea><div class="character-count"><span id="description-count">0</span>/2000</div><label for="location-label">Where is it?</label><input id="location-label" name="location_label" type="text" maxlength="240" placeholder="Landmark, street, or area"><button class="secondary-button location-button" type="button" id="use-location">Use my current location <span aria-hidden="true">⌖</span></button><input id="latitude" name="latitude" type="hidden"><input id="longitude" name="longitude" type="hidden"><p id="location-status" class="field-hint" aria-live="polite"></p><div id="form-message" class="form-message" role="alert" aria-live="polite"></div><button class="primary-button full-width" type="submit">Submit report <span aria-hidden="true">→</span></button></form></section>
+<section id="screen-reports" class="screen" aria-labelledby="reports-title" hidden><div class="section-heading"><div><p class="eyebrow">YOUR ACCOUNT</p><h2 id="reports-title">My reports</h2><p class="section-lede">Private reports submitted from this account.</p></div><button id="refresh-reports" class="icon-button" aria-label="Refresh reports" type="button">↻</button></div><div id="reports-state" class="state-card" aria-live="polite"></div><ul id="reports-list" class="incident-list" aria-live="polite"></ul></section></main>
+<nav class="bottom-nav" aria-label="Primary navigation"><button class="nav-item is-selected" type="button" data-screen="feed"><span class="nav-icon home-icon" aria-hidden="true"></span><small>Explore</small></button><button class="nav-report" type="button" data-screen="report"><span aria-hidden="true">+</span><small>Report</small></button><button class="nav-item" type="button" data-screen="reports"><span class="nav-icon note-icon" aria-hidden="true"></span><small>My reports</small></button></nav></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="env.js" onerror="this.remove()"></script><script src="js/supabase.js"></script><script src="js/app.js"></script></body></html>
