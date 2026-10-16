@@ -98,6 +98,7 @@
         <section class="feed-stream" aria-label="Public incident feed">
           <p id="feed-result-count" class="feed-results" aria-live="polite"></p>
           <div id="feed-state" class="state-card" aria-live="polite"></div>
+          <p id="feed-media-state" class="feed-media-state" role="status" aria-live="polite" hidden></p>
           <ul id="incident-list" class="incident-list feed-incident-list" aria-live="polite"></ul>
         </section>
         <section class="feed-report-callout" aria-label="Report a new issue">
@@ -174,7 +175,7 @@
           <h2 id="report-title">Report an incident</h2>
           <p class="section-lede">Share clear details so your community can understand the issue.</p>
         </div>
-        <div class="report-progress" aria-label="Report submission status"><span><span class="report-progress-dot" aria-hidden="true"></span>Three details</span><span id="report-progress-state">Not submitted</span></div>
+        <div class="report-progress" aria-label="Report submission status"><span><span class="report-progress-dot" aria-hidden="true"></span>Report details + optional evidence</span><span id="report-progress-state">Not submitted</span></div>
         <div id="report-gate" class="gate-card" hidden>
           <span class="gate-icon" aria-hidden="true">i</span>
           <div><h3>Sign in to submit</h3><p>You can browse public reports as a guest. Sign in or create an account to submit this report.</p>
@@ -185,16 +186,21 @@
           <section class="report-step" aria-labelledby="report-category-heading">
             <div class="report-step-heading"><span class="report-step-number" aria-hidden="true">1</span><div><h3 id="report-category-heading">Select incident category</h3><p>Choose the closest match.</p></div><span class="report-required">Required</span></div>
             <div id="category-grid" class="report-category-grid" role="radiogroup" aria-labelledby="report-category-heading">
-              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="0" data-report-category="roads"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">≋</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Roads &amp; walkways</strong><small>Roads, paths, potholes</small></button>
-              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="waste"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">♻</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Waste &amp; sanitation</strong><small>Waste, litter, sanitation</small></button>
-              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="water"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">◉</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Water</strong><small>Leaks, supply, drainage</small></button>
-              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="power"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">ϟ</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Power &amp; lighting</strong><small>Streetlights, power issues</small></button>
-              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="safety"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">◇</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Safety</strong><small>Public hazards</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="0" data-report-category="waste_sanitation"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">♻</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Waste &amp; Sanitation</strong><small>Waste, litter, sanitation</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="water_supply_leakage"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">◉</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Water Supply &amp; Leakage</strong><small>Leaks and water access</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="electricity_power"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">ϟ</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Electricity &amp; Power</strong><small>Power cuts and lighting</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="flooding_drainage"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">≋</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Flooding &amp; Drainage</strong><small>Floods and blocked drains</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="roads_infrastructure"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">▱</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Roads &amp; Infrastructure</strong><small>Roads, bridges, pathways</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="traffic_transportation"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">↔</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Traffic &amp; Transportation</strong><small>Congestion and transit</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="accidents_emergencies"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">!</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Accidents &amp; Emergencies</strong><small>Collisions and urgent events</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="crime_public_safety"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">◇</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Crime &amp; Public Safety</strong><small>Crime and safety concerns</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="civil_unrest_rioting"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">⚑</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Civil Unrest &amp; Rioting</strong><small>Unrest and related hazards</small></button>
+              <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="environmental_hazards"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">⌁</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Environmental Hazards</strong><small>Pollution and hazardous sites</small></button>
               <button class="report-category-option" type="button" role="radio" aria-checked="false" tabindex="-1" data-report-category="other"><span class="report-category-top"><span class="report-category-icon" aria-hidden="true">•••</span><span class="report-category-check" aria-hidden="true">✓</span></span><strong>Other</strong><small>Another community issue</small></button>
             </div>
             <select id="category" name="category" class="report-native-select" aria-hidden="true" tabindex="-1" required>
               <option value="" selected disabled>Choose a category</option>
-              <option value="roads">Roads &amp; walkways</option><option value="waste">Waste &amp; sanitation</option><option value="water">Water</option><option value="power">Power &amp; lighting</option><option value="safety">Safety</option><option value="other">Other</option>
+              <option value="waste_sanitation">Waste &amp; Sanitation</option><option value="water_supply_leakage">Water Supply &amp; Leakage</option><option value="electricity_power">Electricity &amp; Power</option><option value="flooding_drainage">Flooding &amp; Drainage</option><option value="roads_infrastructure">Roads &amp; Infrastructure</option><option value="traffic_transportation">Traffic &amp; Transportation</option><option value="accidents_emergencies">Accidents &amp; Emergencies</option><option value="crime_public_safety">Crime &amp; Public Safety</option><option value="civil_unrest_rioting">Civil Unrest &amp; Rioting</option><option value="environmental_hazards">Environmental Hazards</option><option value="other">Other</option>
             </select>
           </section>
           <section class="report-step" aria-labelledby="report-specifics-heading">
@@ -210,6 +216,18 @@
             <p id="location-status" class="field-hint report-location-status" aria-live="polite"></p>
             <button id="clear-location" class="report-clear-location" type="button" hidden>Remove GPS coordinates</button>
             <p class="report-location-note">GPS is optional. If used, your coordinates are included with this report. Submitted reports are private by default and are not published automatically.</p>
+          </section>
+          <section class="report-step" aria-labelledby="report-media-heading">
+            <div class="report-step-heading"><span class="report-step-number" aria-hidden="true">4</span><div><h3 id="report-media-heading">Photo or video evidence</h3><p>Choose up to three clear images or clips.</p></div><span class="report-optional">Optional</span></div>
+            <div class="report-media-picker">
+              <button id="media-add-button" class="secondary-button report-media-add" type="button"><span aria-hidden="true">＋</span> Add photo or video</button>
+              <input id="media-file-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/webm,video/quicktime,video/3gpp,video/x-m4v" multiple hidden>
+              <span id="media-count" class="report-media-count">0 of 3 selected</span>
+            </div>
+            <p class="report-media-note">Photos and videos up to 25 MiB each. Files stay on this device until you submit. You can replace or remove selected items first.</p>
+            <p id="media-empty-state" class="report-media-empty">No attachments selected.</p>
+            <div id="media-preview-list" class="report-media-preview-list" aria-label="Selected report attachments"></div>
+            <p id="media-status" class="media-status" role="status" aria-live="polite" hidden></p>
           </section>
           <aside class="report-privacy-note"><span class="report-privacy-icon" aria-hidden="true">i</span><p><strong>Private by default</strong>Your report is tied to your signed-in account and is not published automatically.</p></aside>
           <div id="form-message" class="form-message" role="alert" aria-live="polite"></div>
@@ -245,9 +263,12 @@
       <button class="nav-item" type="button" data-screen="reports"><span class="nav-icon note-icon" aria-hidden="true"></span><small>My reports</small></button>
     </nav>
   </div>
+  <script src="cordova.js" onerror="this.remove()"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="env.js" onerror="this.remove()"></script>
+  <script src="js/vendor/tus.min.js"></script>
   <script src="js/supabase.js"></script>
+  <script src="js/report-media.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

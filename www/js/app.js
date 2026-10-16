@@ -2,14 +2,35 @@
   'use strict';
   const $ = (s) => document.querySelector(s);
   const screens = [...document.querySelectorAll('.screen')];
-  const labels = { roads:'Roads & walkways', waste:'Waste & sanitation', water:'Water', power:'Power & lighting', safety:'Safety', other:'Other' };
+  const labels = { waste_sanitation:'Waste & Sanitation', water_supply_leakage:'Water Supply & Leakage', electricity_power:'Electricity & Power', flooding_drainage:'Flooding & Drainage', roads_infrastructure:'Roads & Infrastructure', traffic_transportation:'Traffic & Transportation', accidents_emergencies:'Accidents & Emergencies', crime_public_safety:'Crime & Public Safety', civil_unrest_rioting:'Civil Unrest & Rioting', environmental_hazards:'Environmental Hazards', other:'Other' };
   const statuses = { submitted:'Submitted', acknowledged:'Acknowledged', in_progress:'In progress', resolved:'Resolved' };
-  let session = null; let activeFilter = 'all'; let incidents = []; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
+  let session = null; let activeFilter = 'all'; let incidents = []; let incidentMedia = Object.create(null); let feedRequest = 0; let detailRequest = 0; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
   let myReports = []; let reportsFilter = 'all'; let reportsRequest = 0;
   let authResolved = false; let startupResolved = false; let startupBusy = false; let authSubscription = null; let pendingStartupAuth = null; let authMode = 'signin';
   const escapeHtml = (v) => String(v || '').replace(/[&<>'"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const date = (v) => v ? new Date(v).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'Date unavailable';
   const relativeDate = (v) => { const time = Date.parse(v); if (!Number.isFinite(time)) return 'Date unavailable'; const mins = Math.max(0, Math.floor((Date.now() - time) / 60000)); if (mins < 1) return 'Just now'; if (mins < 60) return `${mins}m ago`; const hours = Math.floor(mins / 60); if (hours < 24) return `${hours}h ago`; const days = Math.floor(hours / 24); return days < 7 ? `${days}d ago` : date(v); };
+  function renderMediaMarkup(media, context) {
+    const items = (Array.isArray(media) ? media : []).filter((item) => item && item.signed_url);
+    if (!items.length) return '';
+    const visible = context === 'feed' ? items.slice(0, 1) : items;
+    return `<div class="incident-media incident-media-${context}" aria-label="Incident attachments">${visible.map((item, index) => {
+      const src = escapeHtml(item.signed_url);
+      if (item.media_type === 'video') return `<div class="incident-media-item"><video controls playsinline preload="metadata" src="${src}" aria-label="Incident video ${index + 1}"></video></div>`;
+      return `<div class="incident-media-item"><img src="${src}" alt="Photo attached to incident report ${index + 1}" loading="lazy"></div>`;
+    }).join('')}</div>`;
+  }
+  function handleIncidentMediaError(event) {
+    const element = event.target;
+    if (!element || typeof element.matches !== 'function' || !element.matches('.incident-media img, .incident-media video')) return;
+    const wrapper = element.closest('.incident-media-item');
+    if (!wrapper || wrapper.querySelector('.incident-media-unavailable')) return;
+    const notice = document.createElement('p');
+    notice.className = 'incident-media-unavailable';
+    notice.setAttribute('role', 'status');
+    notice.textContent = 'This attachment could not be loaded or played on this device.';
+    wrapper.replaceChildren(notice);
+  }
   function setStartupProgress(value, text) {
     const bar = $('#initProgressBar');
     const label = $('#initStatusText');
@@ -134,7 +155,7 @@
       const status = escapeHtml(statuses[item.status] || item.status || 'Published');
       const location = item.location_label ? `<p class="feed-card-location"><span aria-hidden="true">⌖</span>${escapeHtml(item.location_label)}</p>` : '';
       const created = escapeHtml(item.created_at || '');
-      return `<li class="feed-incident-item"><article class="feed-incident-card"><div class="feed-card-meta"><span class="feed-category-chip">${category}</span><time datetime="${created}">${escapeHtml(relativeDate(item.created_at))}</time><span class="feed-status-chip">${status}</span></div><h3>${escapeHtml(item.title)}</h3>${location}<p class="feed-card-description">${escapeHtml(item.description || '')}</p><button class="feed-details-button" type="button" data-incident="${escapeHtml(item.id)}">View details <span aria-hidden="true">→</span></button></article></li>`;
+      return `<li class="feed-incident-item"><article class="feed-incident-card"><div class="feed-card-meta"><span class="feed-category-chip">${category}</span><time datetime="${created}">${escapeHtml(relativeDate(item.created_at))}</time><span class="feed-status-chip">${status}</span></div><h3>${escapeHtml(item.title)}</h3>${location}<p class="feed-card-description">${escapeHtml(item.description || '')}</p>${renderMediaMarkup(incidentMedia[item.id], 'feed')}<button class="feed-details-button" type="button" data-incident="${escapeHtml(item.id)}">View details <span aria-hidden="true">→</span></button></article></li>`;
     }).join('');
     list.querySelectorAll('[data-incident]').forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.incident)));
     const empty = $('#feed-state');
@@ -144,8 +165,62 @@
       else state(empty, 'No public incidents yet', 'There are no incidents currently published to the community feed.');
     } else empty.hidden = true;
   }
-  async function loadFeed() { const st=$('#feed-state'); st.hidden=false; st.innerHTML='<div class="skeleton" aria-label="Loading incidents"></div>'; $('#incident-list').innerHTML=''; if(!window.BincomData.isConfigured()) { state(st,'Public feed is not connected',window.BincomData.configurationMessage()); return; } const r=await window.BincomData.listPublicReports(); if(r.error) { state(st,'We could not load incidents','Check your connection and try again. Published incidents have not been replaced with sample content.',loadFeed); return; } incidents=r.data||[]; renderFilters(); renderIncidents(); }
-  async function openDetail(id) { showScreen('detail'); const target=$('#detail-content'); target.innerHTML='<div class="state-card"><div class="skeleton"></div></div>'; const fallback=incidents.find((i)=>i.id===id); if(!fallback){state(target,'Incident unavailable','This published incident could not be found. Return to the feed and try again.');return;} const r=await window.BincomData.getPublicReport(id); const i=r.data||fallback; if(r.error&&!i){state(target,'Incident unavailable','This incident may no longer be published. Return to the feed and try again.');return;} target.innerHTML=`<article><div class="detail-hero"><span class="chip">${escapeHtml(labels[i.category]||i.category)}</span><h2 id="detail-title">${escapeHtml(i.title)}</h2><span class="detail-date">${date(i.created_at)}</span></div><div class="detail-body"><h3>Status</h3><p><span class="chip status-chip">${escapeHtml(statuses[i.status]||i.status||'Published')}</span></p><h3>What was reported</h3><p>${escapeHtml(i.description)}</p>${i.location_label?`<h3>Location</h3><p>${escapeHtml(i.location_label)}</p>`:''}</div></article>`; }
+  async function loadFeed() {
+    const requestId = ++feedRequest;
+    const st = $('#feed-state');
+    const mediaState = $('#feed-media-state');
+    st.hidden = false;
+    st.innerHTML = '<div class="skeleton" aria-label="Loading incidents"></div>';
+    $('#incident-list').innerHTML = '';
+    mediaState.hidden = true;
+    if (!window.BincomData.isConfigured()) { state(st, 'Public feed is not connected', window.BincomData.configurationMessage()); return; }
+    try {
+      const result = await window.BincomData.listPublicReports();
+      if (requestId !== feedRequest) return;
+      if (result.error) { state(st, 'We could not load incidents', 'Check your connection and try again. Published incidents have not been replaced with sample content.', loadFeed); return; }
+      incidents = result.data || [];
+      incidentMedia = Object.create(null);
+      if (incidents.length) {
+        const mediaResult = await window.BincomData.listReportMedia(incidents.map((item) => item.id));
+        if (requestId !== feedRequest) return;
+        (mediaResult.data || []).forEach((item) => {
+          if (!incidentMedia[item.report_id]) incidentMedia[item.report_id] = [];
+          incidentMedia[item.report_id].push(item);
+        });
+        if (mediaResult.error || mediaResult.failedCount) {
+          mediaState.textContent = 'Some incident photos or videos could not be loaded. Refresh the feed to try again.';
+          mediaState.hidden = false;
+        }
+      }
+      renderFilters();
+      renderIncidents();
+    } catch (_) {
+      if (requestId !== feedRequest) return;
+      state(st, 'We could not load incidents', 'Check your connection and try again. Published incidents have not been replaced with sample content.', loadFeed);
+    }
+  }
+  async function openDetail(id) {
+    const requestId = ++detailRequest;
+    showScreen('detail');
+    const target = $('#detail-content');
+    target.innerHTML = '<div class="state-card"><div class="skeleton"></div></div>';
+    const fallback = incidents.find((item) => item.id === id);
+    if (!fallback) { state(target, 'Incident unavailable', 'This published incident could not be found. Return to the feed and try again.'); return; }
+    try {
+      const result = await window.BincomData.getPublicReport(id);
+      if (requestId !== detailRequest) return;
+      const incident = result.data || fallback;
+      if (result.error && !incident) { state(target, 'Incident unavailable', 'This incident may no longer be published. Return to the feed and try again.'); return; }
+      const mediaResult = await window.BincomData.listReportMedia([id]);
+      if (requestId !== detailRequest) return;
+      const mediaWarning = mediaResult.error || mediaResult.failedCount
+        ? '<p class="incident-media-warning" role="status">Some attached photos or videos could not be loaded. Try again later.</p>' : '';
+      target.innerHTML = `<article><div class="detail-hero"><span class="chip">${escapeHtml(labels[incident.category] || incident.category)}</span><h2 id="detail-title">${escapeHtml(incident.title)}</h2><span class="detail-date">${date(incident.created_at)}</span></div><div class="detail-body"><h3>Status</h3><p><span class="chip status-chip">${escapeHtml(statuses[incident.status] || incident.status || 'Published')}</span></p><h3>What was reported</h3><p>${escapeHtml(incident.description)}</p>${renderMediaMarkup(mediaResult.data, 'detail')}${mediaWarning}${incident.location_label ? `<h3>Location</h3><p>${escapeHtml(incident.location_label)}</p>` : ''}</div></article>`;
+    } catch (_) {
+      if (requestId !== detailRequest) return;
+      state(target, 'Incident details are unavailable', 'Check your connection and return to the feed to try again.');
+    }
+  }
   function authMessage(text, type) {
     const node = $('#auth-message');
     node.textContent = text || '';
@@ -272,7 +347,7 @@
       const selected = button.dataset.reportCategory === value;
       button.classList.toggle('is-selected', selected);
       button.setAttribute('aria-checked', String(selected));
-      button.tabIndex = selected ? 0 : (value ? -1 : (button.dataset.reportCategory === 'roads' ? 0 : -1));
+      button.tabIndex = selected ? 0 : (value ? -1 : (button.dataset.reportCategory === 'roads_infrastructure' ? 0 : -1));
     });
   }
   function validate(d) {
@@ -306,8 +381,11 @@
       formMessage(window.BincomData.configurationMessage() + ' Nothing was sent.', 'error');
       return;
     }
+    const attachments = window.ReportMedia.getSelected();
     const button = $('#report-form button[type="submit"]');
     button.disabled = true;
+    window.ReportMedia.setBusy(true);
+    $('#report-progress-state').textContent = attachments.length ? 'Uploading attachments…' : 'Submitting…';
     button.innerHTML = '<span class="report-submit-spinner" aria-hidden="true"></span> Submitting report…';
     try {
       const result = await window.BincomData.createReport({
@@ -317,14 +395,32 @@
         location_label: data.location_label.trim() || null,
         latitude: data.latitude ? Number(data.latitude) : null,
         longitude: data.longitude ? Number(data.longitude) : null
+      }, attachments, (progress) => {
+        if (progress.stage === 'upload') {
+          const text = `Uploading attachment ${progress.index} of ${progress.total} · ${progress.percent}%`;
+          $('#report-progress-state').textContent = text;
+          window.ReportMedia.setStatus(text, 'progress');
+        } else {
+          $('#report-progress-state').textContent = 'Saving report…';
+          window.ReportMedia.setStatus('Saving report details…', 'progress');
+        }
       });
       if (result.error) {
-        formMessage(`The report was not sent: ${result.error.message}`, 'error');
+        if (result.mayHaveSubmitted) {
+          formMessage(`We could not confirm whether the report was saved. Check My Reports before submitting again. ${result.error.message}`, 'error');
+          window.ReportMedia.setStatus(result.error.message, 'error');
+          $('#report-progress-state').textContent = 'Check My Reports';
+        } else {
+          formMessage(`The report was not sent: ${result.error.message}`, 'error');
+          window.ReportMedia.setStatus(result.error.message, 'error');
+          $('#report-progress-state').textContent = 'Not submitted';
+        }
         return;
       }
-      formMessage('Report submitted securely. It is private until an authorized workflow publishes it.', 'success');
+      window.ReportMedia.clear();
       form.reset();
       setReportCategory('');
+      formMessage('Report submitted securely. Its attachments are stored privately; the report remains private until an authorized workflow publishes it.', 'success');
       $('#report-progress-state').textContent = 'Submitted · private';
       $('#title-count').textContent = '0';
       $('#description-count').textContent = '0';
@@ -332,7 +428,9 @@
       $('#clear-location').hidden = true;
     } catch (error) {
       formMessage(`Submission could not be confirmed: ${error && error.message ? error.message : 'Check your connection, then review My Reports before trying again.'}`, 'error');
+      window.ReportMedia.setStatus(error && error.message ? error.message : 'The submission could not be confirmed.', 'error');
     } finally {
+      window.ReportMedia.setBusy(false);
       button.disabled = false;
       button.innerHTML = '<span aria-hidden="true">↑</span> Submit incident report';
     }
@@ -439,10 +537,10 @@
   document.addEventListener('focusin',(e)=>{if(e.target.matches('input:not([type="hidden"]),textarea')){document.body.classList.add('keyboard-open');setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),250);}});
   document.addEventListener('focusout',(e)=>{if(e.target.matches('input,textarea'))setTimeout(()=>{if(!document.activeElement.matches('input:not([type="hidden"]),textarea'))document.body.classList.remove('keyboard-open');},100);});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{if(window.visualViewport.height<window.innerHeight-140)document.body.classList.add('keyboard-open');else document.body.classList.remove('keyboard-open');});
-  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#reports-state-actions').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.reportsAuth)openAuth('reports',button.dataset.reportsAuth);else if(button.dataset.reportsAction==='retry')loadReports();else if(button.dataset.reportsAction==='create')showScreen('report');});document.querySelectorAll('[data-reports-filter]').forEach((button)=>button.addEventListener('click',()=>{reportsFilter=button.dataset.reportsFilter;renderMyReports();}));$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{$('#latitude').value=p.coords.latitude;$('#longitude').value=p.coords.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';markReportDraft();},()=>{$('#location-status').textContent='Location permission was not granted. You can enter a landmark instead.';},{enableHighAccuracy:false,timeout:10000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-status').textContent='GPS coordinates removed from this report.';markReportDraft();});
+  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#reports-state-actions').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.reportsAuth)openAuth('reports',button.dataset.reportsAuth);else if(button.dataset.reportsAction==='retry')loadReports();else if(button.dataset.reportsAction==='create')showScreen('report');});document.querySelectorAll('[data-reports-filter]').forEach((button)=>button.addEventListener('click',()=>{reportsFilter=button.dataset.reportsFilter;renderMyReports();}));$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);document.addEventListener('reportmediachange',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{$('#latitude').value=p.coords.latitude;$('#longitude').value=p.coords.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';markReportDraft();},()=>{$('#location-status').textContent='Location permission was not granted. You can enter a landmark instead.';},{enableHighAccuracy:false,timeout:10000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-status').textContent='GPS coordinates removed from this report.';markReportDraft();});
   $('#startup-retry').addEventListener('click', initializeStartup);
   $('#startup-guest').addEventListener('click', () => showApplication('feed'));
   $('#welcome-account').addEventListener('click', () => openAuth('welcome'));
   $('#welcome-signin').addEventListener('click', () => openAuth('welcome'));
-  (function init() { renderFilters(); initializeStartup(); }());
+  (function init() { document.addEventListener('error', handleIncidentMediaError, true); window.ReportMedia.init(); renderFilters(); initializeStartup(); }());
 })();

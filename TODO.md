@@ -23,3 +23,14 @@
 - [x] Additive public visibility migration and documentation are included.
 - [x] JavaScript syntax, diff hygiene, bundle serving, and tracked-file secret scan completed.
 - [ ] Android debug APK: blocked in this sandbox because Java JDK, Android SDK, and Gradle are unavailable.
+
+
+## Reporting media, taxonomy, and Supabase setup follow-up
+- [x] Replace legacy report-category values in place and add the complete eleven-category taxonomy used by the report form, feed filters, cards, details, and enum.
+- [x] Add a Cordova-compatible photo/video library picker and browser fallback with previews, three-file/25 MiB checks, replacement/removal, and local error/loading states.
+- [x] Upload selected files to a private Supabase Storage bucket using resumable TUS; create owner-scoped metadata in the same transaction as a private report.
+- [x] Render public report images and playable video in Explore cards and incident details through expiring signed URLs; preserve explicit media failure feedback.
+- [x] Add ordered, additive SQL migrations, ownership/RLS policies, indexes/triggers, a private bucket definition, and setup/security documentation.
+- [x] Keep frontend configuration limited to a public anon/publishable key; do not ship a service-role or database secret.
+- [ ] Apply the two new migrations to the intended Supabase project, confirm the bucket/RLS settings, and verify live auth, report submission, upload, publication, and signed reads with test data.
+- [ ] Build and test the Android APK on a machine with the supported JDK and Android SDK.
