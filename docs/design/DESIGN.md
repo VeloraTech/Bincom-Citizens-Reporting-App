@@ -1,10 +1,10 @@
-# Bincom Citizens Reporting — Milestone 2 design direction
+# WeSignal — Milestone 2 design direction
 
 ## Product intent
 A calm, trustworthy public window into community incidents, paired with a secure reporting path for residents. Guests can open the app and browse published incidents immediately. An account is only required when someone chooses to submit a report or view their private submitted reports.
 
-## Design movement
-**Civic signal:** high-contrast editorial hierarchy, bright civic blue, and compact metadata that make a public service feel accountable rather than bureaucratic.
+## Design movement — WeSignal
+**WeSignal civic signal:** high-contrast editorial hierarchy, bright civic blue, and compact metadata that make a public service feel accountable rather than bureaucratic.
 
 ## Core principles
 - **Open first:** the first useful screen is the public incident feed, not a login wall.
@@ -24,3 +24,6 @@ The report CTA remains visible from the feed. Guests see an in-context account g
 
 ## Security boundary
 `reports.is_public` is false by default. The client can read only published rows for the public feed; report inserts are forced private in both client payload and RLS. No service-role key, moderation UI, photo upload, or private report data is exposed.
+
+## WeSignal brand lock
+The approved mark is a crisp vector symbol built from three rising blue forms and a sweeping lower form suggesting collective action. The wordmark uses **We** in deep navy and **Signal** in primary blue. The exact product tagline is **“See it. Report it. Improve it.”** The launcher uses the symbol only so text remains legible at small sizes; the onboarding and app header carry the wordmark and tagline.

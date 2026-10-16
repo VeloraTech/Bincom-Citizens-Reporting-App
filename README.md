@@ -1,4 +1,4 @@
-# Bincom Citizens Reporting App
+# WeSignal App
 A Cordova Android app for browsing published community incidents and securely reporting issues. This branch implements **Milestone 2** on top of the merged Milestone 1 foundation.
 
 ## Milestone 2
@@ -32,3 +32,13 @@ To publish a real incident, an authorized backend/admin workflow must set `is_pu
 
 ## Security and scope
 No service-role key, local environment file, photo upload, push notification, moderation UI, or unrelated milestone work is included. Anonymous writes and private report reads remain denied by RLS. Do not merge or publish this branch without the repository's normal review workflow.
+
+## WeSignal brand lock
+The product name and exact tagline are locked as **WeSignal** — **See it. Report it. Improve it.** The user-facing onboarding, public feed header, auth/report flow, app label, status bar, and launch visual use the approved navy/blue system without changing the Cordova package ID or Supabase security model.
+
+Brand assets are source-controlled at:
+- `resources/icon.svg` — crisp vector source for the three rising forms and collective-action sweep.
+- `resources/splash.svg` — branded launch artwork using the exact tagline.
+- `resources/android/icon-512.png` — master raster launcher icon.
+- `resources/android/icon/drawable-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/icon.png` — configured Android density variants.
+- `tools/generate-icons.py` — deterministic SVG-to-PNG generator used to create the raster variants.

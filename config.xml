@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <widget id="com.bincom.citizensreporting" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
-  <name>Bincom Citizens Reporting</name>
-  <description>A transparent way to report and track community issues.</description>
+  <name>WeSignal</name>
+  <description>See it. Report it. Improve it.</description>
   <author email="hello@bincom.com" href="https://github.com/VeloraTech/Bincom-Citizens-Reporting-App">Bincom</author>
   <content src="index.html" />
   <access origin="https://*.supabase.co" />
@@ -13,8 +13,14 @@
   <preference name="GradlePluginGoogleServicesEnabled" value="false" />
   <preference name="DisallowOverscroll" value="true" />
   <preference name="StatusBarStyle" value="lightcontent" />
-  <preference name="StatusBarBackgroundColor" value="#123C3A" />
+  <preference name="StatusBarBackgroundColor" value="#1769E0" />
+  <icon src="resources/android/icon-512.png" />
   <platform name="android">
+    <icon src="resources/android/icon/drawable-mdpi/icon.png" density="mdpi" />
+    <icon src="resources/android/icon/drawable-hdpi/icon.png" density="hdpi" />
+    <icon src="resources/android/icon/drawable-xhdpi/icon.png" density="xhdpi" />
+    <icon src="resources/android/icon/drawable-xxhdpi/icon.png" density="xxhdpi" />
+    <icon src="resources/android/icon/drawable-xxxhdpi/icon.png" density="xxxhdpi" />
     <edit-config file="app/src/main/AndroidManifest.xml" mode="merge" android:usesCleartextTraffic="false" xmlns:android="http://schemas.android.com/apk/res/android" />
     <allow-intent href="market:*" />
   </platform>

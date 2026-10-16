@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#F7FAFF"/><stop offset="1" stop-color="#E6F0FF"/></linearGradient></defs>
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <g transform="translate(284 770) scale(1.0)"><rect width="512" height="512" rx="112" fill="#F7FAFF"/><path fill="#1769E0" d="M101 337c-15-12-18-33-8-50l69-116c12-21 38-29 59-17 21 13 28 40 16 61l-70 118c-12 21-44 20-66 4Z"/><path fill="#3D8EF0" d="M194 338c-15-12-18-32-8-50l70-116c12-21 38-28 59-16 21 12 28 39 16 60l-70 118c-12 21-45 20-67 4Z"/><path fill="#8EC5FF" d="M288 338c-15-11-19-31-9-48l63-104c12-20 37-27 58-15 20 12 27 37 16 58l-64 105c-12 20-43 19-64 4Z"/><path fill="#142B4A" d="M98 359c81 51 184 61 300-7 16-10 29-2 31 11 3 15-4 29-18 38-128 77-247 65-328 7-17-12-20-34-7-47 6-6 14-7 22-2Z"/></g>
+  <text x="540" y="1400" fill="#142B4A" text-anchor="middle" font-family="Arial, sans-serif" font-size="70" font-weight="700">WeSignal</text>
+  <text x="540" y="1480" fill="#1769E0" text-anchor="middle" font-family="Arial, sans-serif" font-size="34">See it. Report it. Improve it.</text>
+</svg>

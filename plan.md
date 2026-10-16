@@ -25,7 +25,7 @@ The schema change is intentionally minimal: add `is_public boolean not null defa
 - **Interaction Philosophy:** browsing never requires auth; report intent is preserved through a visible auth gate; every async operation has a designed state.
 - **Animation:** 180ms ease-out entrance/press transitions; no looping motion; honor `prefers-reduced-motion`.
 - **Typography System:** system sans-serif; 30px display title, 24px section title, 16px card title, 14–16px body, 12px metadata.
-- **Brand Essence:** Bincom Citizens Reporting is a clear public window into community issues and a secure way for residents to submit one; trustworthy, direct, neighborly.
+- **Brand Essence:** WeSignal is a clear public window into community issues and a secure way for residents to submit one; trustworthy, direct, neighborly.
 - **Brand Voice:** “See what your community is tracking.” / “An account keeps your report connected to you.”
 - **Wordmark & Logo:** existing BC monogram retained as a compact outlined mark.
 - **Signature Brand Color:** `#1769E0` primary blue.
