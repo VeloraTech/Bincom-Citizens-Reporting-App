@@ -6,6 +6,8 @@
   <content src="index.html" />
   <access origin="https://*.supabase.co" />
   <access origin="https://cdn.jsdelivr.net" />
+  <access origin="https://fonts.googleapis.com" />
+  <access origin="https://fonts.gstatic.com" />
   <allow-navigation href="https://*.supabase.co/*" />
   <allow-intent href="http://*/*" />
   <allow-intent href="https://*/*" />
