@@ -1,0 +1,14 @@
+node_modules/
+platforms/
+plugins/
+www/.sass-cache/
+www/env.js
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+*.iml
+.gradle/
+local.properties
+coverage/
