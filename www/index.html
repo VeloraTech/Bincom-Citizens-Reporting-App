@@ -9,7 +9,31 @@
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-  <section id="screen-onboarding" class="onboarding" aria-labelledby="welcome-title">
+  <section id="startup-splash" class="startup-splash" aria-label="Starting WeSignal">
+    <header class="startup-header">
+      <img class="startup-header-icon" src="images/wesignal-icon.png" alt="">
+      <h1>Welcome</h1>
+    </header>
+    <main class="startup-center">
+      <div class="startup-icon-wrap"><img src="images/wesignal-icon.png" alt=""></div>
+      <h2>WeSignal</h2>
+      <p class="startup-tagline">See it. Report it. Improve it.</p>
+      <div class="startup-progress-group">
+        <div id="initProgressBar" class="startup-progress" role="progressbar" aria-labelledby="initStatusText" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10"><span></span></div>
+        <p id="initStatusText" class="startup-status" aria-live="polite">Starting WeSignal</p>
+      </div>
+      <div id="startup-error" class="startup-error" role="alert" hidden>
+        <p id="startup-error-message"></p>
+        <div class="startup-error-actions">
+          <button id="startup-retry" class="primary-button" type="button">Try again</button>
+          <button id="startup-guest" class="secondary-button" type="button">Browse public reports</button>
+        </div>
+      </div>
+    </main>
+    <footer class="startup-footer">WeSignal <span>Community reporting</span></footer>
+  </section>
+
+  <section id="screen-onboarding" class="onboarding" aria-labelledby="welcome-title" hidden>
     <div class="onboarding-art"><img class="brand-lockup-icon" src="images/wesignal-icon.png" alt=""><span class="onboarding-brand-name">WeSignal</span></div>
     <div class="onboarding-copy">
       <p class="eyebrow">Community reporting</p>

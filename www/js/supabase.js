@@ -10,6 +10,8 @@
     isConfigured: () => Boolean(client),
     configurationMessage: () => hasConfig ? 'Supabase could not be initialized. Check the public URL and anon key in www/env.js.' : 'Supabase is not configured. Add the public URL and anon key in www/env.js.',
     async getSession() { return client ? client.auth.getSession() : { data: { session: null }, error: null }; },
+    async getUser() { return client ? client.auth.getUser() : { data: { user: null }, error: unavailable() }; },
+    async clearLocalSession() { return client ? client.auth.signOut({ scope: 'local' }) : { error: unavailable() }; },
     onAuthStateChange(callback) { return client ? client.auth.onAuthStateChange(callback) : { data: { subscription: { unsubscribe() {} } } }; },
     async signUp(email, password) { return client ? client.auth.signUp({ email, password }) : { data: null, error: unavailable() }; },
     async signIn(email, password) { return client ? client.auth.signInWithPassword({ email, password }) : { data: null, error: unavailable() }; },
