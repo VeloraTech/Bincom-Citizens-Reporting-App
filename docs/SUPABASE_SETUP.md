@@ -16,8 +16,11 @@ In the Supabase Dashboard, open **SQL Editor → New query**. Apply each file as
 | 6 | `supabase/migrations/20261018000003_report_management.sql` | Adds owner-only edit/append-media RPCs. |
 | 7 | `supabase/migrations/20261018000004_report_resolution_confirmations.sql` | Adds private per-user confirmations and an atomic RPC that resolves public reports after three distinct non-reporter confirmations. |
 | 8 | `supabase/migrations/20261018000005_fix_report_media_policy_recursion.sql` | Replaces the recursive Storage-object existence check in the `report_media` INSERT policy with a narrowly scoped helper; preserves existing read and ownership checks. |
+| 9 | `supabase/migrations/20261018000006_repair_launch_blocker_schema_drift.sql` | Idempotent forward repair for deployments missing the report confirmation counter or the non-recursive media INSERT policy. |
 
 If migrations 1 and 2 have already been applied, do not reapply them; apply only missing versions in order. Keep a record of applied versions if managing SQL manually. Before applying any migration that may have been run manually, reconcile actual effects with the Supabase migration ledger; never mark a version applied without verifying every effect. Do not reset production or delete existing data.
+
+The forward-repair migration is intended for a live project with the two confirmed symptoms: a missing `reports.resolution_confirmations` column and a recursive `report_media` INSERT policy. Before applying it, inspect the migration ledger and current schema/policies. It adds only the missing counter/constraint and replaces only the named INSERT policy using the scoped helper; it does not change report/media SELECT policies, disable RLS, or make the Storage bucket public. If earlier migrations are missing, reconcile and apply their missing effects in order rather than treating this repair as a substitute for the full schema history.
 
 ### Category values
 
