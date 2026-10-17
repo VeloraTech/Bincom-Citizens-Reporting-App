@@ -9,8 +9,9 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization') || ''
   const token = authHeader.replace(/^Bearer\s+/i, '')
   if (!token) return json({ error: 'Authentication is required.' }, 401)
-  const url = Deno.env.get('SUPABASE_URL')!
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const url = Deno.env.get('SUPABASE_URL')
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!url || !serviceKey) return json({ error: 'The account-actions function is not configured. Deploy it with SUPABASE_SERVICE_ROLE_KEY set in the Edge Function environment.' }, 500)
   const userClient = createClient(url, Deno.env.get('SUPABASE_ANON_KEY') || serviceKey, { global: { headers: { Authorization: `Bearer ${token}` } } })
   const service = createClient(url, serviceKey)
   const { data: auth, error: authError } = await userClient.auth.getUser(token)
