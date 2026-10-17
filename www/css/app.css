@@ -534,3 +534,78 @@ body.map-modal-open { overflow: hidden; }
 .account-report-actions { display: flex; gap: 8px; margin-top: 12px; }
 .report-card-action { min-height: 34px; flex: 1; padding: 7px 10px; font-size: 10px; }
 .account-report-actions .danger-button { width: auto; margin-top: 0; }
+
+
+/* Live-data incident details: media first, clear status, location, and community progress. */
+body.detail-screen-active .app-main { max-width: 860px; padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+body.detail-screen-active #screen-detail { padding: 4px 0 20px; color: #1C1B1B; font-family: "Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body.detail-screen-active #screen-detail > .back-button { min-height: 44px; margin: 0 0 12px; padding: 7px 4px; font: 600 12px/1.2 "Hanken Grotesk", sans-serif; }
+.incident-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.detail-card { min-width: 0; padding: 16px; border: 1px solid rgb(28 27 27 / 6%); border-radius: 16px; background: #FFFFFF; box-shadow: 0 3px 12px rgb(28 27 27 / 4%); }
+.detail-media-frame { min-width: 0; min-height: 220px; overflow: hidden; border-radius: 17px; background: #F0F3F8; box-shadow: 0 3px 12px rgb(28 27 27 / 6%); }
+.detail-media-frame .incident-media { display: flex; gap: 9px; overflow-x: auto; margin: 0; padding: 0; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+.detail-media-frame .incident-media-item { min-width: 100%; flex: 0 0 100%; border: 0; border-radius: 0; background: #111111; scroll-snap-align: start; }
+.detail-media-frame .incident-media-item img, .detail-media-frame .incident-media-item video { width: 100%; height: clamp(220px, 55vw, 430px); max-height: 430px; object-fit: contain; background: #111111; }
+.detail-media-empty { min-height: 230px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 26px; border: 1px dashed #CBD4E2; border-radius: 17px; color: #596575; background: linear-gradient(145deg, #F7F9FC, #EEF3FB); text-align: center; }
+.detail-media-empty strong { color: #181D24; font: 650 15px/1.3 "Hanken Grotesk", sans-serif; }
+.detail-media-empty > span:last-child { font-size: 12px; line-height: 1.5; }
+.detail-media-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 14px; color: var(--blue); background: #EAF1FC; font-size: 23px; font-weight: 700; }
+.detail-media-error { border-style: solid; border-color: #F0D9A8; background: #FFFAEF; }
+.detail-media-error .detail-media-icon { color: #8A5A00; background: #FFF0CC; }
+.detail-media-error .text-button { min-height: 42px; margin-top: 1px; }
+.detail-heading-card { padding: 18px; }
+.detail-heading-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.detail-category, .detail-status { max-width: 100%; padding: 6px 9px; border-radius: 999px; font: 650 10px/1.2 "Hanken Grotesk", sans-serif; letter-spacing: .045em; text-transform: uppercase; }
+.detail-category { overflow: hidden; color: #0D4FAC; background: #EAF1FC; text-overflow: ellipsis; white-space: nowrap; }
+.detail-status { margin-left: auto; color: #414B5A; background: #F0F2F5; }
+.detail-status-resolved { color: #176344; background: #E7F5EE; }
+.detail-heading-card h2 { margin: 15px 0 10px; color: #111111; font: 700 clamp(24px, 5vw, 34px)/1.12 "Hanken Grotesk", -apple-system, sans-serif; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.detail-date { display: block; color: #667080; font-size: 12px; line-height: 1.45; }
+.detail-description h3, .detail-section-heading h3 { margin: 0; color: #151A21; font: 650 15px/1.3 "Hanken Grotesk", sans-serif; }
+.detail-description p { margin: 9px 0 0; color: #434B57; font-size: 14px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.detail-section-heading { display: flex; align-items: flex-start; gap: 11px; }
+.detail-section-icon { width: 37px; height: 37px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 12px; color: var(--blue); background: #EAF1FC; font: 700 19px/1 "Hanken Grotesk", sans-serif; }
+.detail-section-heading p { margin: 4px 0 0; color: #687282; font-size: 11px; line-height: 1.5; }
+.detail-location .detail-section-heading p { margin-top: 6px; color: #1D2633; font-size: 13px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.detail-location-coordinates { display: block; margin-top: 4px; color: #737E8E; font: 500 10px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.detail-location-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.detail-location-actions .location-map-link { min-height: 42px; margin: 0; padding: 8px 12px; border: 1px solid #D9E2F0; border-radius: 10px; color: #135BC1; background: #F8FAFE; font: 600 11px/1.2 "Hanken Grotesk", sans-serif; }
+.detail-confirmation { padding: 17px; border-color: #DCE7F8; background: linear-gradient(145deg, #FFFFFF, #F7FAFF); }
+.detail-confirmation-count { display: flex; align-items: baseline; gap: 7px; margin: 17px 0 8px; color: #6A7482; font-size: 12px; }
+.detail-confirmation-count strong { color: #111111; font: 700 30px/1 "Hanken Grotesk", sans-serif; letter-spacing: -.04em; }
+.detail-confirmation-count span { font-weight: 600; }
+.detail-progress-track { height: 9px; overflow: hidden; border-radius: 999px; background: #E7ECF4; }
+.detail-progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--blue); transition: width .25s ease; }
+.detail-confirmation-caption { margin: 7px 0 13px; color: #687282; font-size: 10px; line-height: 1.4; }
+.detail-confirm-button { width: 100%; min-height: 48px; border-radius: 11px; font: 650 12px/1.3 "Hanken Grotesk", sans-serif; }
+.detail-confirmation .secondary-button:disabled { color: #3A4654; background: #EEF2F7; opacity: 1; cursor: default; }
+.detail-confirmation-note { margin: 10px 0 0; padding: 11px 12px; border-radius: 10px; color: #414B5A; background: #EEF3FB; font-size: 11px; line-height: 1.5; }
+.detail-inline-error { margin: 14px 0 8px; color: #8D272E; font-size: 12px; line-height: 1.5; }
+.detail-confirmation-feedback { margin: 10px 0 0; padding: 10px 11px; border-radius: 9px; color: #176344; background: #E7F5EE; font-size: 11px; line-height: 1.45; }
+.detail-confirmation-feedback[hidden] { display: none; }
+.detail-loading { display: grid; gap: 12px; }
+.detail-loading .skeleton { background: linear-gradient(90deg, #EEF1F5 25%, #FAFBFC 50%, #EEF1F5 75%); background-size: 200% 100%; }
+.detail-skeleton-line { width: 100%; height: 12px; display: block; margin: 7px 0; border-radius: 8px; }
+.detail-skeleton-short { width: 38%; }
+.detail-skeleton-title { height: 23px; width: 82%; }
+.detail-skeleton-button { height: 46px; margin-top: 15px; border-radius: 10px; }
+#screen-detail .state-card { margin: 10px 0; border-radius: 14px; }
+@media (min-width: 700px) {
+  .incident-detail { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .detail-media-frame, .detail-media-empty, .detail-heading-card, .detail-description, .incident-media-warning { grid-column: 1 / -1; }
+  .detail-location, .detail-confirmation { align-self: stretch; }
+  .detail-media-empty { min-height: 290px; }
+}
+@media (max-width: 420px) {
+  .detail-card { padding: 14px; border-radius: 14px; }
+  .detail-media-frame, .detail-media-empty { min-height: 205px; }
+  .detail-media-frame .incident-media-item img, .detail-media-frame .incident-media-item video { height: 230px; }
+  .detail-heading-card h2 { font-size: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail-progress-track span { transition: none; }
+}
+
+.detail-inline-warning { grid-column: 1 / -1; margin: 0; padding: 10px 12px; border-radius: 10px; color: #714C00; background: #FFF1CC; font-size: 11px; line-height: 1.45; }
+.detail-confirmation-feedback.is-error { color: #8D272E; background: #FCE8E8; }
+.detail-loading-title { height: 23px; width: 82%; overflow: hidden; margin: 7px 0; color: transparent; font-size: 0; }

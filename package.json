@@ -7,7 +7,7 @@
   "scripts": {
     "prepare": "cordova prepare",
     "start": "cordova serve",
-    "check": "node --check www/js/app.js && node --check www/js/supabase.js && node --check www/js/report-media.js && node --check www/js/map.js && node --check www/js/deep-link.js && node --check www/js/auth-visibility.js && node tools/test-android-media-picker.js",
+    "check": "node --check www/js/app.js && node --check www/js/supabase.js && node --check www/js/report-media.js && node --check www/js/map.js && node --check www/js/deep-link.js && node --check www/js/auth-visibility.js && node --check www/js/incident-detail-view.js && node tools/test-android-media-picker.js && node tools/test-incident-detail-view.js",
     "build:android": "cordova build android --debug"
   },
   "keywords": [
