@@ -56,9 +56,20 @@ Do not add broad Storage policies such as “allow public read/write” or authe
 
 The metadata table has RLS as well: anonymous users can select metadata only for public reports; users can select their own report metadata; only an authenticated report owner may attach metadata to their own newly submitted report; clients have no metadata update/delete grant. The submission RPC runs as the caller (not as a privileged definer), inserts the report and metadata in one database transaction, and uses `auth.uid()` for ownership.
 
-## 3. Enable email authentication
+## 3. Enable email authentication and configure mobile redirects
 
-In **Authentication → Sign In / Providers**, enable the Email provider and choose the confirmation behavior appropriate for your deployment. If email confirmation is enabled, users must follow the confirmation email before establishing a usable session. Set the project's Site URL and any redirect allow-list entries to the real URL/deep-link callback used by your release.
+In **Authentication → Sign In / Providers → Email**, enable email/password and keep **Confirm email** enabled. Do not disable confirmation to work around redirect problems; an unconfirmed signup must not receive an authenticated session.
+
+In **Authentication → URL Configuration**, set the values below for this Cordova-only Android release:
+
+- **Site URL:** `com.bincom.citizensreporting://auth/callback`
+- **Redirect URLs / Additional Redirect URLs:** add the exact URL `com.bincom.citizensreporting://auth/callback`
+
+The package ID `com.bincom.citizensreporting` is read from this project's `config.xml`; the custom URL-scheme plugin registers the lowercase scheme `com.bincom.citizensreporting`. The callback host and path are `auth/callback`. Do not use `http://localhost:3000` for Site URL or a production redirect. If the same Supabase project also serves a website, keep Site URL set to that website's real HTTPS URL and still add the exact mobile callback to the redirect allow-list; the app explicitly supplies its mobile `emailRedirectTo` during signup.
+
+Leave Supabase's standard confirmation-email template using `{{ .ConfirmationURL }}` unless the template has been customized. If a custom template builds a redirect using `{{ .SiteURL }}`, replace its localhost value and use the redirect variable (`{{ .RedirectTo }}`) as described in Supabase's template guidance. Do not hard-code `localhost:3000` into the email template.
+
+The app uses Supabase PKCE signup, passes `emailRedirectTo: 'com.bincom.citizensreporting://auth/callback'`, receives both cold-start and already-running Android links, and exchanges the returned code for a session. Confirmation-link errors return to the sign-in form with an error message; successful confirmation routes to Explore. Rebuild and reinstall the Android app after changing the scheme registration, then test with a new account and an actual confirmation email. The custom scheme does not require opening Chrome as part of normal map interaction.
 
 Guests may browse public Explore reports but cannot submit. No moderation screen or broad anonymous write policy is added.
 
@@ -69,15 +80,25 @@ For local development, copy `www/env.js.example` to **`www/env.js`** and edit th
 ```js
 window.BINCOM_CONFIG = {
   supabaseUrl: 'https://YOUR_PROJECT_REF.supabase.co',
-  supabaseAnonKey: 'YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY'
+  supabaseAnonKey: 'YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY',
+  authRedirectUrl: 'com.bincom.citizensreporting://auth/callback',
+  mapTileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  mapTileAttribution: '&copy; OpenStreetMap contributors',
+  mapSearchEndpoint: 'https://photon.komoot.io/api/'
 };
 ```
+
+For Android builds, the existing workflow is `.github/workflows/android-build.yml`. In GitHub, open the repository **Settings → Secrets and variables → Actions → Variables → New repository variable** and add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. The workflow also accepts `SUPABASE_ANON_KEY` instead of the publishable-key name. If you store these values as Actions secrets instead, use the same exact names. The URL/key are public client configuration; the workflow validates the key format and writes only the generated, Git-ignored `www/env.js`. It does not read or accept service-role/secret keys and does not print credential values. No extra GitHub variable is needed for the auth redirect because the mobile callback is derived from the inspected app configuration and is also shown in `www/env.js.example`.
 
 The app reads this file at runtime. `www/env.js` is ignored by Git. The root `.env.example` is only a reference and is **not** automatically loaded by the static/Cordova app. Configure the project URL and the public `anon`/publishable key in `www/env.js` before building or serving the app.
 
 The anon/publishable key is designed to be present in a client app; RLS is the protection boundary. **Never put a `service_role` key, secret API key, database password, or JWT signing secret in `www/env.js`, another `www/` asset, or a mobile build.** If a privileged key has ever been committed or shipped, rotate it in Supabase.
 
-The existing `config.xml` allows the standard `https://*.supabase.co` project API and Storage/TUS hosts. If you use a custom Supabase domain, add its HTTPS origin to the Cordova `<access>` allow-list (and navigation allow-list if that host is opened as a top-level page) before building.
+The existing `config.xml` allows `https://*.supabase.co`, the OSM tile host `https://tile.openstreetmap.org`, and the Photon search host `https://photon.komoot.io`; it also registers the custom URL-scheme plugin and appends a stable WeSignal User-Agent identifier to Cordova WebView requests. If you use a custom Supabase domain or replace a map provider, add that host's HTTPS origin to Cordova `<access>` before building. The optional map values are public provider endpoints, not credentials. The runtime file is ignored by Git, and the existing Android workflow generates it from the repository's public Supabase URL and anon/publishable key variables.
+
+### In-app map provider notes
+
+The report form and report/feed pin buttons open the locally bundled Leaflet map; tapping or dragging the marker selects coordinates, and the form's “Use my current location” action opens the same map centered on GPS after permission is granted. Search is an explicit user action, not autocomplete. The standard OSM attribution remains visible on the map, and Cordova appends `WeSignal/1.0.0` plus the repository URL to its WebView User-Agent. The OSM Foundation's standard tile server is best-effort, requires visible attribution and identifiable requests, and does not permit offline/prefetch downloads. Photon’s public demo permits reasonable project use but can throttle requests and has no availability guarantee. For production traffic, configure a service with suitable usage terms or self-host the providers, then set the matching public endpoints in `www/env.js` and allow-list their hosts in `config.xml`.
 
 ## 5. Data model and behavior
 
@@ -102,4 +123,30 @@ npm run build:android
 
 A real authentication, report submission, TUS upload, RLS, and signed-URL check requires your Supabase project to be configured in `www/env.js`, all five migrations applied, and Email enabled. This repository/sandbox has no Supabase project URL or user credentials, so those live operations are not claimed as tested. After configuration, verify with one authenticated test account and non-sensitive test media, then confirm that (a) a successful submission appears in **My Reports** and in Explore, (b) its status remains Reported/open, (c) its media and optional GPS pin appear in Explore/details, (d) a guest cannot submit, and (e) an unrelated user cannot edit or delete the report or its media.
 
-References: [Supabase Storage access control](https://supabase.com/docs/guides/storage/security/access-control), [bucket fundamentals](https://supabase.com/docs/guides/storage/buckets/fundamentals), [resumable uploads](https://supabase.com/docs/guides/storage/uploads/resumable-uploads), [JavaScript signed URLs](https://supabase.com/docs/reference/javascript/file-buckets-createsignedurls), [Cordova Camera plugin](https://cordova.apache.org/docs/en/latest/reference/cordova-plugin-camera/), and [Cordova Geolocation plugin](https://github.com/apache/cordova-plugin-geolocation).
+## References
+
+
+### Platform references for the mobile fixes
+
+Cordova Camera v8 can return Android media as either `file://` or `content://`, and the granted URI may be temporary. WeSignal resolves the returned entry and normalizes the readable file to a MIME-typed Blob/File before preview or upload. [1] [2]
+
+The mobile callback uses the Supabase PKCE redirect/code-exchange flow and the inspected Cordova custom-URL-scheme plugin contract. [3] [4] [5]
+
+Leaflet provides the in-app touch map and pin interactions. The standard OSM tile service requires visible attribution and an identifiable app User-Agent, and Photon describes its public demo as reasonable-use/best-effort rather than a guaranteed production service. Cordova's `AppendUserAgent` preference supplies the WeSignal identifier. [6] [7] [8] [9]
+
+Supabase's Storage access, private bucket, resumable upload and signed-URL guidance support the policy and upload setup in this guide. Cordova's Geolocation plugin provides the Android location API used by the app. [10] [11] [12] [13] [14]
+
+[1]: https://cordova.apache.org/docs/en/latest/reference/cordova-plugin-camera/ "Apache Cordova Camera plugin"
+[2]: https://cordova.apache.org/docs/en/latest/reference/cordova-plugin-file/ "Apache Cordova File plugin"
+[3]: https://supabase.com/docs/guides/auth/native-mobile-deep-linking "Supabase native mobile deep linking"
+[4]: https://supabase.com/docs/guides/auth/redirect-urls "Supabase Auth redirect URLs"
+[5]: https://github.com/EddyVerbruggen/Custom-URL-scheme "Cordova custom URL scheme plugin"
+[6]: https://leafletjs.com/examples/quick-start/ "Leaflet quick start"
+[7]: https://operations.osmfoundation.org/policies/tiles/ "OpenStreetMap tile usage policy"
+[8]: https://github.com/komoot/photon "Photon public geocoder project"
+[9]: https://cordova.apache.org/docs/en/latest/config_ref/ "Apache Cordova config.xml reference"
+[10]: https://supabase.com/docs/guides/storage/security/access-control "Supabase Storage access control"
+[11]: https://supabase.com/docs/guides/storage/buckets/fundamentals "Supabase Storage bucket fundamentals"
+[12]: https://supabase.com/docs/guides/storage/uploads/resumable-uploads "Supabase resumable uploads"
+[13]: https://supabase.com/docs/reference/javascript/file-buckets-createsignedurls "Supabase JavaScript signed URLs"
+[14]: https://github.com/apache/cordova-plugin-geolocation "Apache Cordova Geolocation plugin"

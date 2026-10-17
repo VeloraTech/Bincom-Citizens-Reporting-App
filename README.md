@@ -6,9 +6,9 @@ A Cordova Android app for browsing published community incidents and securely re
 - Public incident feed for guests and signed-in users, backed by Supabase `reports` rows where `is_public = true`.
 - Category filtering, honest configuration/loading/empty/error states, incident details and back navigation.
 - Real Supabase email/password sign-up, sign-in, sign-out, and session restoration.
-- Guest report gate with Login/Create account actions; optional native GPS permission, saved coordinates, map pins, and actionable denied/unavailable/timeout states.
+- Guest report gate with Login/Create account actions; an embedded Leaflet map with draggable/tappable pins, explicit landmark/address search, optional GPS, and clear denied/unavailable/network states.
 - Canonical eleven-category taxonomy shared by reporting, filtering, feed cards, details, and the database enum.
-- Optional image/video attachments using Cordova's native library picker (with browser file-input fallback), local previews, replacement/removal, and resumable private Supabase Storage uploads.
+- Optional image/video attachments using Cordova's native library picker (with browser file-input fallback), Android URI/MIME normalization, local previews, replacement/removal, and resumable private Supabase Storage uploads.
 - Published Explore cards and details render stored image/video media using short-lived signed URLs; no public bucket or UI-only media placeholders.
 - Android status bar uses a white background and dark icons without overlaying app content; the account avatar control has a subtle blue ring.
 - Secure additive migrations: new authenticated submissions are automatically published in the initial Reported/open status; public reads remain limited to public rows, and media/ownership are RLS-enforced.
@@ -25,9 +25,10 @@ npm run build:android
 For a browser preview: `npm start`
 
 ## Supabase setup
-1. Create a Supabase project and enable email/password authentication.
+1. Create a Supabase project and enable email/password authentication with email confirmation left enabled.
 2. Follow the complete ordered migrations, private Storage setup, RLS summary, and app-key instructions in [`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md). Apply migrations 3, 4, and 5 separately and in order so the enum additions commit before media setup and auto-publication.
-3. Copy `www/env.js.example` to local-only `www/env.js`, then enter the public project URL and anon/publishable key. Never ship a service-role key.
+3. Configure **Authentication → URL Configuration** with the exact Android callback `com.bincom.citizensreporting://auth/callback` and set the Site URL as described in the guide; never use `localhost:3000` in production.
+4. Copy `www/env.js.example` to local-only `www/env.js`, then enter the public project URL and anon/publishable key. Never ship a service-role key. The existing GitHub Actions workflow creates this ignored file for Android CI builds.
 
 After a successful authenticated submission, the report is automatically visible in Explore with status `submitted` (displayed as **Reported**). Submission does not resolve the incident. Existing rows are not changed by the publication migration, and the client has no report edit/delete or moderation control. If the project has no published reports, the app shows an honest empty state rather than sample content.
 

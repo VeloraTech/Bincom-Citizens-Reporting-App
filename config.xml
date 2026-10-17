@@ -6,17 +6,21 @@
   <content src="index.html" />
   <access origin="https://*.supabase.co" />
   <access origin="https://cdn.jsdelivr.net" />
+  <access origin="https://tile.openstreetmap.org" />
+  <access origin="https://photon.komoot.io" />
   <access origin="https://fonts.googleapis.com" />
   <access origin="https://fonts.gstatic.com" />
   <allow-navigation href="https://*.supabase.co/*" />
   <allow-intent href="http://*/*" />
   <allow-intent href="https://*/*" />
+  <allow-intent href="com.bincom.citizensreporting://*" />
   <preference name="AndroidXEnabled" value="true" />
   <preference name="GradlePluginGoogleServicesEnabled" value="false" />
   <preference name="DisallowOverscroll" value="true" />
   <preference name="StatusBarOverlaysWebView" value="false" />
   <preference name="StatusBarStyle" value="default" />
   <preference name="StatusBarBackgroundColor" value="#FFFFFF" />
+  <preference name="AppendUserAgent" value="WeSignal/1.0.0 (+https://github.com/VeloraTech/Bincom-Citizens-Reporting-App)" />
   <preference name="AndroidWindowSplashScreenAnimatedIcon" value="resources/android/icon-512.png" />
   <preference name="AndroidWindowSplashScreenBackground" value="#FFFFFF" />
   <icon src="resources/android/icon-512.png" />
