@@ -269,7 +269,13 @@
     try {
       const result = await window.BincomData.listPublicReports();
       if (requestId !== feedRequest) return;
-      if (result.error) { state(st, 'We could not load incidents', 'Check your connection and try again. Published incidents have not been replaced with sample content.', loadFeed); return; }
+      if (result.error) {
+        console.error('Published incident query failed', result.error);
+        const detail = [result.error.code, result.error.message, result.error.details, result.error.hint].filter(Boolean).join(' · ');
+        const explanation = detail ? `Supabase error: ${escapeHtml(detail)}` : 'Supabase returned an unspecified error.';
+        state(st, 'We could not load incidents', `${explanation} Published incidents have not been replaced with sample content.`, loadFeed);
+        return;
+      }
       incidents = result.data || [];
       incidentMedia = Object.create(null);
       if (incidents.length) {
@@ -286,9 +292,11 @@
       }
       renderFilters();
       renderIncidents();
-    } catch (_) {
+    } catch (error) {
       if (requestId !== feedRequest) return;
-      state(st, 'We could not load incidents', 'Check your connection and try again. Published incidents have not been replaced with sample content.', loadFeed);
+      console.error('Published incident query threw an exception', error);
+      const detail = error && error.message ? `Query error: ${escapeHtml(error.message)}` : 'The request failed before Supabase returned a response.';
+      state(st, 'We could not load incidents', `${detail} Published incidents have not been replaced with sample content.`, loadFeed);
     }
   }
   async function openDetail(id) {
