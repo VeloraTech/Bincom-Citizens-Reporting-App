@@ -1,0 +1,3 @@
+# Supabase CLI project configuration. Link to the live project at deployment time;
+# never commit credentials or a project-specific database password here.
+project_id = "wesignal"

@@ -153,3 +153,36 @@ Supabase's Storage access, private bucket, resumable upload and signed-URL guida
 [12]: https://supabase.com/docs/guides/storage/uploads/resumable-uploads "Supabase resumable uploads"
 [13]: https://supabase.com/docs/reference/javascript/file-buckets-createsignedurls "Supabase JavaScript signed URLs"
 [14]: https://github.com/apache/cordova-plugin-geolocation "Apache Cordova Geolocation plugin"
+
+
+## 7. Safe migration-history reconciliation before automation
+
+**Do not enable production deployment until this section is complete.** This repository cannot inspect your live project without credentials, so the status of the six migration versions and their effects is currently unknown. The workflow does not reset the database, drop tables, or delete rows. Supabase `db push` uses the CLI migration ledger; it is not a substitute for reconciling SQL that was previously pasted into the Dashboard.
+
+1. Back up the project using your normal Supabase backup/PITR process and arrange a maintenance window. Do not run `db reset`, `migration repair`, or `db push` yet.
+2. On a trusted workstation, install/update the Supabase CLI, authenticate with `supabase login`, and link the repository to the exact project (`supabase link --project-ref <project-ref>`). Enter the database password only in the CLI prompt. Do not paste it into chat, source files, terminal commands recorded by shell history, or Actions logs.
+3. Inspect history with `supabase migration list --linked` and save the output privately. Record which of these repository versions appear in the **remote** history: `20261016000000`, `20261017000000`, and `20261018000000` through `20261018000003`. A version being absent means only that the ledger does not record it; it does not prove the SQL has not run.
+4. Compare the live schema with the repository migrations using the CLI's linked-schema diff (`supabase db diff --linked --schema public`) and inspect the SQL output. Separately inspect the actual definitions in the Dashboard or via read-only catalog queries: enum labels (`public.report_category`, `public.report_status`), tables/columns/constraints/indexes, RLS enable/force flags and policies, grants, functions and their signatures/bodies, triggers, `storage.buckets` and `storage.objects` policies. Check that `report_media` has all columns from the migration (including `size_bytes`, `sort_order`, and `created_at`); its mere existence is insufficient. Confirm the private bucket settings and do not expose object names/data in shared logs.
+5. For every unrecorded migration, classify it as **not applied**, **fully applied and effects verified**, or **partially applied/uncertain**. Verify all meaningful effects against the full migration, not just table existence. In particular, `20261018000000` renames enum labels and adds values; `20261018000001` creates media storage/table/policies and RPCs; the subsequent migrations alter publication behavior and report-management RPCs. Preserve existing rows. If any effect is partial, ambiguous, or differs, stop and get a DBA/Supabase specialist to prepare a forward-only repair migration; do not stamp it applied.
+6. Only for a migration whose effects have been independently verified complete, and after a reviewed backup/checkpoint, use the Supabase CLI migration repair command to record that exact version as applied (or otherwise adopt the reviewed equivalent). Never repair/stamp a version merely to make `db push` pass. For SQL that is missing, prefer applying the original migration only after a staging rehearsal proves it is safe; for partial SQL, repair forward rather than blindly rerunning it. Keep a dated record of evidence and each repaired version.
+7. Re-run `supabase migration list --linked`, inspect `supabase db diff --linked --schema public`, and confirm that history and schema agree. Rehearse the exact `supabase db push --linked` and Edge Function deployment on a staging project first. Enable the production workflow only after review and approval. Configure the GitHub `production` Environment with required reviewers to provide a deployment approval gate.
+
+The live Supabase project was not queried during this repository change. No migration version has been marked applied, no migration has been run against production, and no schema/data deletion is part of this automation.
+
+## 8. GitHub Actions deployment configuration
+
+Configure these under repository **Settings → Secrets and variables → Actions**. Prefer environment-scoped production credentials under **Environments → production → Environment secrets/variables**, and add required reviewers to that environment.
+
+| Name | Type | Purpose |
+|---|---|---|
+| `SUPABASE_PROJECT_REF` | `production` environment variable | Exact project reference (not URL). |
+| `SUPABASE_ACCESS_TOKEN` | `production` environment secret | Supabase CLI authentication for deployment. Use a dedicated token and rotate it; Supabase CLI access tokens may have broad account permissions, so restrict who can view/change this environment. |
+| `SUPABASE_DB_PASSWORD` | `production` environment secret | Database password used only by `supabase link`/migration deployment; never log or expose it. |
+| `SUPABASE_URL` | repository variable (or secret) | Public app endpoint used by APK builds. |
+| `SUPABASE_PUBLISHABLE_KEY` | repository variable (or secret) | Public client key. `SUPABASE_ANON_KEY` is accepted as the legacy alternative. Never use a secret/service-role key here. |
+
+`account-actions` must already have its runtime `SUPABASE_SERVICE_ROLE_KEY` configured as a Supabase Edge Function secret (Dashboard → Edge Functions → Secrets, or `supabase secrets set` from a trusted device). This key is **not** a GitHub Actions secret and is never passed to the app or deployment workflow. No separate GitHub service-role secret is needed. Keep any other function environment secrets in Supabase, not in repository files.
+
+The workflow is serialized with a non-cancelling concurrency group and fails before deployment when required deployment settings are missing. SQL linting uses an ephemeral local Supabase stack and does not touch production. Production deploys run only from `main` (or a deliberate manual dispatch), after migration validation and the protected `production` environment approval. The Android APK build in the deployment workflow depends on successful migrations and Edge Function deployment. The separate pull-request workflow builds/validates the app but never deploys.
+
+The deployment does not automatically configure the Edge Function's runtime secret. Before enabling it, verify in Supabase that the `account-actions` function has `SUPABASE_SERVICE_ROLE_KEY`; never print it or put it in GitHub Actions output. The migration workflow applies only pending versions according to Supabase's ledger; the reconciliation steps above are a prerequisite because some migrations may have been applied manually.
