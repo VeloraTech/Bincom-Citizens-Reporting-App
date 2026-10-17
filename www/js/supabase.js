@@ -148,12 +148,12 @@
     async signOut() { return client ? client.auth.signOut() : { error: unavailable() }; },
     async listPublicReports() {
       if (!client) return { data: [], error: unavailable() };
-      return client.from('reports').select('id,title,category,status,description,created_at,location_label')
+      return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude')
         .eq('is_public', true).order('created_at', { ascending: false });
     },
     async getPublicReport(id) {
       if (!client) return { data: null, error: unavailable() };
-      return client.from('reports').select('id,title,category,status,description,created_at,location_label')
+      return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude')
         .eq('id', id).eq('is_public', true).maybeSingle();
     },
     listReportMedia,
@@ -162,7 +162,7 @@
       const current = await client.auth.getSession();
       if (current.error) return { data: [], error: current.error };
       if (!current.data.session) return { data: [], error: new Error('Sign in is required to view your reports.') };
-      return client.from('reports').select('id,title,description,category,status,created_at,location_label')
+      return client.from('reports').select('id,title,description,category,status,created_at,location_label,latitude,longitude')
         .eq('reporter_id', current.data.session.user.id).order('created_at', { ascending: false });
     },
     async createReport(payload, attachments = [], onProgress) {
@@ -186,6 +186,7 @@
       const reportId = makeUuid();
       const attemptedPaths = [];
       const reportMedia = [];
+      let rpcAttempted = false;
       try {
         for (let index = 0; index < media.length; index += 1) {
           const item = media[index];
@@ -206,6 +207,7 @@
           });
         }
         if (typeof onProgress === 'function') onProgress({ stage: 'saving', index: media.length, total: media.length, percent: 100 });
+        rpcAttempted = true;
         const submitted = await client.rpc('submit_report_with_media', {
           p_report_id: reportId,
           p_title: payload.title,
@@ -221,15 +223,19 @@
           const status = Number(submitted.error.status);
           const mayHaveSubmitted = !Number.isFinite(status) || status >= 500;
           const details = submitted.error.message || 'Supabase rejected the submission.';
-          const cleanupNote = cleanupError ? ' Uploaded media could not be cleaned up automatically; it remains private.' : '';
+          const cleanupNote = cleanupError
+            ? (mayHaveSubmitted ? ' Media cleanup could not be confirmed; the report may already be saved and public. Check My Reports before retrying.' : ' Media cleanup could not be confirmed; unlinked files may remain inside the private bucket.')
+            : '';
           return { data: null, error: new Error(`${details}${cleanupNote}`), mayHaveSubmitted };
         }
         return { data: { id: submitted.data, media: reportMedia }, error: null, mayHaveSubmitted: false };
       } catch (error) {
         const cleanupError = await removeUnlinked(attemptedPaths);
         const message = error && error.message ? error.message : 'The media upload did not complete.';
-        const cleanupNote = cleanupError ? ' Uploaded media could not be cleaned up automatically; it remains private.' : '';
-        return { data: null, error: new Error(`${message}${cleanupNote}`), mayHaveSubmitted: false };
+        const cleanupNote = cleanupError
+          ? (rpcAttempted ? ' Media cleanup could not be confirmed; the report may already be saved and public. Check My Reports before retrying.' : ' Media cleanup could not be confirmed; unlinked files may remain inside the private bucket.')
+          : '';
+        return { data: null, error: new Error(`${message}${cleanupNote}`), mayHaveSubmitted: rpcAttempted };
       }
     }
   };
