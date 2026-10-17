@@ -79,6 +79,13 @@
       </div>
     </header>
 
+    <aside id="new-incident-notification" class="new-incident-notification" role="status" aria-live="polite" hidden>
+      <span class="new-incident-notification-icon" aria-hidden="true">●</span>
+      <div class="new-incident-notification-copy"><strong>New public incident</strong><p id="new-incident-notification-title"></p></div>
+      <button id="new-incident-notification-view" class="secondary-button" type="button">View Explore</button>
+      <button id="new-incident-notification-dismiss" class="new-incident-notification-dismiss" type="button" aria-label="Dismiss notification">×</button>
+    </aside>
+
     <main id="app" class="app-main">
       <section id="screen-feed" class="screen explore-screen" aria-labelledby="feed-title">
         <div id="auth-callback-notice" class="auth-callback-notice" role="status" aria-live="polite" hidden></div>
