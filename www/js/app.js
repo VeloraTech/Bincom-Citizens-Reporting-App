@@ -499,6 +499,9 @@
     if (!item || !window.confirm(`Delete “${item.title || 'this report'}”? This cannot be undone.`)) return;
     const result = await window.BincomData.accountAction('delete-report', id);
     if (result.error) { showReportsState('Report was not deleted', result.error.message || 'Try again.', [{ label: 'Try again', action: 'retry', className: 'secondary-button' }], 'error'); return; }
+    incidents = incidents.filter((report) => report.id !== id);
+    delete incidentMedia[id];
+    renderIncidents();
     await loadReports();
   }
   async function deleteAccount() {
@@ -546,6 +549,11 @@
       }
       if (result.error) { formMessage(`Could not save changes: ${result.error.message}`, 'error'); $('#report-progress-state').textContent = 'Not saved'; return; }
       const wasEditing = Boolean(editingReportId);
+      if (wasEditing) {
+        const feedIndex = incidents.findIndex((report) => report.id === payload.id);
+        if (feedIndex >= 0) incidents[feedIndex] = { ...incidents[feedIndex], ...payload };
+        renderIncidents();
+      }
       resetReportEditor();
       formMessage(wasEditing ? 'Report updated successfully.' : 'Report submitted successfully. It is now visible in Explore; any optional GPS coordinates are public too.', 'success');
       $('#report-progress-state').textContent = wasEditing ? 'Changes saved' : 'Reported · public';

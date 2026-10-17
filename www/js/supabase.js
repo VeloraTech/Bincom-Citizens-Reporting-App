@@ -142,6 +142,34 @@
     });
   }
 
+  function readAsArrayBuffer(file) {
+    if (file && typeof file.arrayBuffer === 'function') return file.arrayBuffer();
+    return new Promise((resolve, reject) => {
+      if (typeof FileReader !== 'function') { reject(new Error('This Android WebView cannot read the selected image.')); return; }
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error || new Error('The selected image could not be read.'));
+      reader.onload = () => resolve(reader.result);
+      try { reader.readAsArrayBuffer(file); } catch (error) { reject(error); }
+    });
+  }
+  async function uploadImage(file, objectPath, mimeType, onProgress) {
+    const bytes = await readAsArrayBuffer(file);
+    if (!bytes || !bytes.byteLength) throw new Error('The selected image contains no readable bytes.');
+    const result = await client.storage.from(MEDIA_BUCKET).upload(objectPath, bytes, {
+      contentType: mimeType,
+      cacheControl: '3600',
+      upsert: false
+    });
+    if (result.error) throw result.error;
+    if (typeof onProgress === 'function') onProgress(100);
+    return bytes.byteLength;
+  }
+  async function uploadMedia(file, objectPath, mimeType, accessToken, onProgress) {
+    if (mimeType.startsWith('image/')) return uploadImage(file, objectPath, mimeType, onProgress);
+    await uploadWithTus(file, objectPath, mimeType, accessToken, onProgress);
+    return Number(file && file.size) || 0;
+  }
+
   async function removeUnlinked(paths) {
     if (!client || !paths.length) return null;
     try {
@@ -238,8 +266,8 @@
           const item = attachments[index];
           const objectPath = `${session.user.id}/${reportId}/${makeUuid()}.${MEDIA_EXTENSIONS[item.mimeType]}`;
           paths.push(objectPath);
-          await uploadWithTus(item.file, objectPath, item.mimeType, session.access_token, (percent) => { if (typeof onProgress === 'function') onProgress({ stage: 'upload', index: index + 1, total: attachments.length, percent }); });
-          metadata.push({ bucket_id: MEDIA_BUCKET, object_path: objectPath, media_type: item.mediaType, mime_type: item.mimeType, size_bytes: item.size });
+          const actualSize = await uploadMedia(item.file, objectPath, item.mimeType, session.access_token, (percent) => { if (typeof onProgress === 'function') onProgress({ stage: 'upload', index: index + 1, total: attachments.length, percent }); });
+          metadata.push({ bucket_id: MEDIA_BUCKET, object_path: objectPath, media_type: item.mediaType, mime_type: item.mimeType, size_bytes: actualSize || item.size });
         }
         const saved = await client.rpc('append_own_report_media', { p_report_id: reportId, p_media: metadata });
         if (saved.error) { await removeUnlinked(paths); return { data: null, error: saved.error, mayHaveSubmitted: false }; }
@@ -282,16 +310,15 @@
           const extension = MEDIA_EXTENSIONS[item.mimeType];
           const objectPath = `${session.user.id}/${reportId}/${makeUuid()}.${extension}`;
           attemptedPaths.push(objectPath);
-          const result = await uploadWithTus(item.file, objectPath, item.mimeType, session.access_token, (percent) => {
+          const actualSize = await uploadMedia(item.file, objectPath, item.mimeType, session.access_token, (percent) => {
             if (typeof onProgress === 'function') onProgress({ stage: 'upload', index: index + 1, total: media.length, percent });
           });
-          if (!result) throw new Error('The attachment upload did not complete.');
           reportMedia.push({
             bucket_id: MEDIA_BUCKET,
             object_path: objectPath,
             media_type: item.mediaType,
             mime_type: item.mimeType,
-            size_bytes: item.size,
+            size_bytes: actualSize || item.size,
             sort_order: index
           });
         }
