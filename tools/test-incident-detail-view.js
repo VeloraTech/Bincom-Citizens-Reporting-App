@@ -58,6 +58,10 @@ const summaryError = view.render({ ...common, summary: { error: true } });
 assert.match(summaryError, /couldn’t load the current confirmation count/);
 assert.match(summaryError, /data-refresh-detail/);
 assert.doesNotMatch(summaryError, /0 of 3 confirmations/);
+const summaryDiagnostic = view.render({ ...common, summary: { error: true, errorMessage: 'PGRST202 · Function not found' } });
+assert.match(summaryDiagnostic, /detail-error-diagnostic/);
+assert.match(summaryDiagnostic, /PGRST202 · Function not found/);
+assert.doesNotMatch(view.render({ ...common, summary: { error: true, errorMessage: '<script>alert(1)<\/script>' } }), /<script>alert/);
 
 const staleDetail = view.render({ ...common, reportWarning: 'Could not refresh this incident from Supabase.' , summary: { confirmation_count: 0, threshold: 3, has_confirmed: false, is_reporter: false } });
 assert.match(staleDetail, /role="status">Could not refresh this incident from Supabase/);

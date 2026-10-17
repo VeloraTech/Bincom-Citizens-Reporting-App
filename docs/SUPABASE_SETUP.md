@@ -18,8 +18,11 @@ In the Supabase Dashboard, open **SQL Editor → New query**. Apply each file as
 | 8 | `supabase/migrations/20261018000005_fix_report_media_policy_recursion.sql` | Replaces the recursive Storage-object existence check in the `report_media` INSERT policy with a narrowly scoped helper; preserves existing read and ownership checks. |
 | 9 | `supabase/migrations/20261018000006_repair_launch_blocker_schema_drift.sql` | Idempotent forward repair for deployments missing the report confirmation counter or the non-recursive media INSERT policy. |
 | 10 | `supabase/migrations/20261018000007_public_confirmation_summary.sql` | Adds a public-report-only RPC that counts persisted community confirmation rows and returns only the current caller's confirmation/reporter flags, not confirmer identities. |
+| 11 | `supabase/migrations/20261018000008_public_incident_realtime_notifications.sql` | Adds public reports to Supabase Realtime for in-app alerts while a client is open and connected; existing report SELECT RLS remains in force. |
 
 If migrations 1 and 2 have already been applied, do not reapply them; apply only missing versions in order. Keep a record of applied versions if managing SQL manually. Before applying any migration that may have been run manually, reconcile actual effects with the Supabase migration ledger; never mark a version applied without verifying every effect. Do not reset production or delete existing data.
+
+Migration 11 enables a live in-app alert for a new public incident while WeSignal is open and connected. It is not Android push notification delivery and does not notify a device when the app is closed or offline; that requires a push provider, device registration, and credentials.
 
 The forward-repair migration is intended for a live project with the two confirmed symptoms: a missing `reports.resolution_confirmations` column and a recursive `report_media` INSERT policy. Before applying it, inspect the migration ledger and current schema/policies. It adds only the missing counter/constraint and replaces only the named INSERT policy using the scoped helper; it does not change report/media SELECT policies, disable RLS, or make the Storage bucket public. If earlier migrations are missing, reconcile and apply their missing effects in order rather than treating this repair as a substitute for the full schema history.
 

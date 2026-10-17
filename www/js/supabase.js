@@ -256,6 +256,16 @@
       return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude,resolution_confirmations')
         .eq('is_public', true).order('created_at', { ascending: false });
     },
+    subscribeToPublicIncidentInserts(callback) {
+      if (!client || typeof client.channel !== 'function') return null;
+      const channel = client.channel('wesignal-public-incident-notifications')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports', filter: 'is_public=eq.true' }, (payload) => {
+          const report = payload && payload.new;
+          if (report && report.is_public === true && typeof callback === 'function') callback(report);
+        })
+        .subscribe();
+      return { channel, unsubscribe: () => client.removeChannel(channel) };
+    },
     async getPublicReport(id) {
       if (!client) return { data: null, error: unavailable() };
       return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude,resolution_confirmations')

@@ -39,9 +39,12 @@
 
   function confirmationMarkup(incident, summary, signedIn, statusLabel) {
     if (!summary || summary.error) {
+      const diagnostic = summary && summary.errorMessage
+        ? `<p class="detail-error-diagnostic" role="status">${escapeHtml(summary.errorMessage)}</p>` : '';
       return `<section class="detail-card detail-confirmation" aria-labelledby="confirmation-title">
         <div class="detail-section-heading"><span class="detail-section-icon" aria-hidden="true">✓</span><div><h3 id="confirmation-title">Community confirmations</h3><p>Progress is based on saved confirmations from distinct community members.</p></div></div>
         <p class="detail-inline-error" role="alert">We couldn’t load the current confirmation count.</p>
+        ${diagnostic}
         <button class="secondary-button" type="button" data-refresh-detail>Retry confirmation status</button>
       </section>`;
     }
@@ -74,7 +77,7 @@
     }
 
     return `<section class="detail-card detail-confirmation" aria-labelledby="confirmation-title">
-      <div class="detail-section-heading"><span class="detail-section-icon" aria-hidden="true">✓</span><div><h3 id="confirmation-title">Community confirmations</h3><p>Three distinct people who didn’t report the incident can confirm it is resolved.</p></div></div>
+      <div class="detail-section-heading"><span class="detail-section-icon" aria-hidden="true">✓</span><div><h3 id="confirmation-title">Community confirmations</h3><p>Three distinct people who didn’t report it can confirm resolution; the third confirmation marks it resolved.</p></div></div>
       <div class="detail-confirmation-count"><strong>${count}</strong><span> of ${threshold} confirmations</span></div>
       <div class="detail-progress-track" role="progressbar" aria-label="Community confirmations toward the threshold" aria-valuemin="0" aria-valuemax="${threshold}" aria-valuenow="${count}"><span style="width:${progress}%"></span></div>
       <p class="detail-confirmation-caption">${count === threshold ? 'Threshold reached' : `${threshold - count} more ${threshold - count === 1 ? 'confirmation' : 'confirmations'} needed`}</p>
