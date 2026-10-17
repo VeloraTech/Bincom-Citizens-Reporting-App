@@ -189,7 +189,11 @@
     state.replaceTargetId = replaceTargetId || null;
     const camera = window.navigator && window.navigator.camera;
     const hasFileResolver = typeof window.resolveLocalFileSystemURL === 'function';
-    if (window.cordova && camera && typeof camera.getPicture === 'function' && hasFileResolver) {
+    const isAndroidCordova = window.cordova && window.cordova.platformId === 'android';
+    // Android Camera 8.x can decode/re-encode gallery images (and returns cache
+    // files such as Modified.jpg). Use the existing WebView file input to keep
+    // Android's selected image/video bytes and original MIME/extension intact.
+    if (!isAndroidCordova && window.cordova && camera && typeof camera.getPicture === 'function' && hasFileResolver) {
       const constants = window.Camera || {};
       const sourceType = constants.PictureSourceType ? constants.PictureSourceType.PHOTOLIBRARY : 0;
       const destinationType = constants.DestinationType ? constants.DestinationType.FILE_URI : 1;
@@ -261,6 +265,12 @@
     addButton.addEventListener('click', () => openPicker(null));
     input.addEventListener('change', () => {
       const files = Array.from(input.files || []);
+      files.forEach((file) => mediaDiagnostic('picker-selection', {
+        picker_source: 'html-file-input', uri_scheme: null,
+        filename: String(file && file.name || 'attachment'),
+        mime_type: resolveMime(file, file && file.name) || String(file && file.type || ''),
+        byte_count: Number(file && file.size) || 0
+      }));
       const replacement = state.replaceTargetId;
       state.replaceTargetId = null;
       addFiles(files, replacement);
