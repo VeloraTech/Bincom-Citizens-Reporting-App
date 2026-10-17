@@ -5,7 +5,7 @@
   const labels = { waste_sanitation:'Waste & Sanitation', water_supply_leakage:'Water Supply & Leakage', electricity_power:'Electricity & Power', flooding_drainage:'Flooding & Drainage', roads_infrastructure:'Roads & Infrastructure', traffic_transportation:'Traffic & Transportation', accidents_emergencies:'Accidents & Emergencies', crime_public_safety:'Crime & Public Safety', civil_unrest_rioting:'Civil Unrest & Rioting', environmental_hazards:'Environmental Hazards', other:'Other' };
   const statuses = { submitted:'Reported', acknowledged:'Acknowledged', in_progress:'In progress', resolved:'Resolved' };
   let session = null; let activeFilter = 'all'; let incidents = []; let incidentMedia = Object.create(null); let feedRequest = 0; let detailRequest = 0; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
-  let myReports = []; let reportsFilter = 'all'; let reportsRequest = 0;
+  let myReports = []; let reportsFilter = 'all'; let reportsRequest = 0; let editingReportId = null;
   let authResolved = false; let startupResolved = false; let startupBusy = false; let authSubscription = null; let pendingStartupAuth = null; let authMode = 'signin';
   const authCallbackPromises = new Map();
   let startupAuthCallbackError = '';
@@ -325,6 +325,7 @@
   function updateSession(next) {
     session = next || null;
     $('#sign-out').hidden = !session;
+    $('#delete-account').hidden = !session;
     $('#auth-form').hidden = !!session;
     $('#auth-title').textContent = session ? 'Your account' : 'Welcome to WeSignal';
     updateGate();
@@ -462,82 +463,95 @@
     }
     return '';
   }
+  function resetReportEditor() {
+    editingReportId = null;
+    $('#report-title').textContent = 'Report an incident';
+    $('#report-submit-button').innerHTML = '<span aria-hidden="true">↑</span> Submit incident report';
+    $('#report-progress-state').textContent = 'Not submitted';
+    $('#report-media-heading').parentElement.querySelector('p').textContent = 'Choose up to three clear images or clips.';
+    window.ReportMedia.clear();
+    $('#report-form').reset();
+    setReportCategory('');
+    updateLocationMapLink();
+  }
+  async function beginEditReport(id) {
+    const item = myReports.find((report) => report.id === id);
+    if (!item) return;
+    editingReportId = id;
+    $('#report-title').textContent = 'Edit your report';
+    $('#report-submit-button').innerHTML = '<span aria-hidden="true">✓</span> Save changes';
+    $('#title').value = item.title || '';
+    $('#description').value = item.description || '';
+    $('#location_label').value = item.location_label || '';
+    $('#latitude').value = item.latitude ?? '';
+    $('#longitude').value = item.longitude ?? '';
+    setReportCategory(item.category || '');
+    $('#title-count').textContent = String($('#title').value.length);
+    $('#description-count').textContent = String($('#description').value.length);
+    $('#clear-location').hidden = !coordinates(item.latitude, item.longitude);
+    updateLocationMapLink();
+    formMessage('', '');
+    window.ReportMedia.clear();
+    showScreen('report');
+  }
+  async function deleteOwnReport(id) {
+    const item = myReports.find((report) => report.id === id);
+    if (!item || !window.confirm(`Delete “${item.title || 'this report'}”? This cannot be undone.`)) return;
+    const result = await window.BincomData.accountAction('delete-report', id);
+    if (result.error) { showReportsState('Report was not deleted', result.error.message || 'Try again.', [{ label: 'Try again', action: 'retry', className: 'secondary-button' }], 'error'); return; }
+    await loadReports();
+  }
+  async function deleteAccount() {
+    if (!session) return;
+    const confirmed = window.confirm('Delete your account permanently? This removes your profile, reports, and stored report media. This cannot be undone.');
+    if (!confirmed) return;
+    const button = $('#delete-account');
+    button.disabled = true;
+    button.textContent = 'Deleting account…';
+    try {
+      const result = await window.BincomData.accountAction('delete-account');
+      if (result.error) { authMessage(result.error.message || 'The account could not be deleted.', 'error'); return; }
+      await window.BincomData.clearLocalSession();
+      authResolved = true;
+      updateSession(null);
+      showWelcome();
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Delete account';
+    }
+  }
   async function submitReport(e) {
     e.preventDefault();
     formMessage('', '');
     const form = $('#report-form');
     const data = Object.fromEntries(new FormData(form).entries());
     const validationError = validate(data);
-    if (validationError) {
-      formMessage(validationError, 'error');
-      if (!data.category) $('[data-report-category]').focus();
-      else if (!data.title || data.title.trim().length < 3) $('#title').focus();
-      else if (!data.description || data.description.trim().length < 10) $('#description').focus();
-      return;
-    }
-    if (!session) {
-      formMessage('Sign in is required before submitting a report. No report was sent.', 'error');
-      openAuth('report');
-      return;
-    }
-    if (!window.BincomData.isConfigured()) {
-      formMessage(window.BincomData.configurationMessage() + ' Nothing was sent.', 'error');
-      return;
-    }
+    if (validationError) { formMessage(validationError, 'error'); if (!data.category) $('[data-report-category]').focus(); else if (!data.title || data.title.trim().length < 3) $('#title').focus(); else if (!data.description || data.description.trim().length < 10) $('#description').focus(); return; }
+    if (!session) { formMessage('Sign in is required before submitting a report. No report was sent.', 'error'); openAuth('report'); return; }
+    if (!window.BincomData.isConfigured()) { formMessage(window.BincomData.configurationMessage() + ' Nothing was sent.', 'error'); return; }
     const attachments = window.ReportMedia.getSelected();
-    const button = $('#report-form button[type="submit"]');
+    const button = $('#report-submit-button');
     button.disabled = true;
     window.ReportMedia.setBusy(true);
-    $('#report-progress-state').textContent = attachments.length ? 'Uploading attachments…' : 'Submitting…';
-    button.innerHTML = '<span class="report-submit-spinner" aria-hidden="true"></span> Submitting report…';
+    $('#report-progress-state').textContent = attachments.length ? 'Uploading attachments…' : (editingReportId ? 'Saving changes…' : 'Submitting…');
+    button.innerHTML = editingReportId ? 'Saving changes…' : '<span class="report-submit-spinner" aria-hidden="true"></span> Submitting report…';
     try {
-      const result = await window.BincomData.createReport({
-        title: data.title.trim(),
-        category: data.category,
-        description: data.description.trim(),
-        location_label: data.location_label.trim() || null,
-        latitude: data.latitude ? Number(data.latitude) : null,
-        longitude: data.longitude ? Number(data.longitude) : null
-      }, attachments, (progress) => {
-        if (progress.stage === 'upload') {
-          const text = `Uploading attachment ${progress.index} of ${progress.total} · ${progress.percent}%`;
-          $('#report-progress-state').textContent = text;
-          window.ReportMedia.setStatus(text, 'progress');
-        } else {
-          $('#report-progress-state').textContent = 'Saving report…';
-          window.ReportMedia.setStatus('Saving report details…', 'progress');
-        }
-      });
-      if (result.error) {
-        if (result.mayHaveSubmitted) {
-          formMessage(`We could not confirm whether the report was saved. Check My Reports before submitting again. ${result.error.message}`, 'error');
-          window.ReportMedia.setStatus(result.error.message, 'error');
-          $('#report-progress-state').textContent = 'Check My Reports';
-        } else {
-          formMessage(`The report was not sent: ${result.error.message}`, 'error');
-          window.ReportMedia.setStatus(result.error.message, 'error');
-          $('#report-progress-state').textContent = 'Not submitted';
-        }
-        return;
+      const payload = { id: editingReportId, title: data.title.trim(), category: data.category, description: data.description.trim(), location_label: data.location_label.trim() || null, latitude: data.latitude ? Number(data.latitude) : null, longitude: data.longitude ? Number(data.longitude) : null };
+      let result;
+      if (editingReportId) {
+        result = await window.BincomData.updateReport(payload);
+        if (!result.error && attachments.length) result = await window.BincomData.appendReportMedia(editingReportId, attachments, (progress) => { $('#report-progress-state').textContent = `Uploading attachment ${progress.index} of ${progress.total} · ${progress.percent}%`; });
+      } else {
+        result = await window.BincomData.createReport(payload, attachments, (progress) => { if (progress.stage === 'upload') { const text = `Uploading attachment ${progress.index} of ${progress.total} · ${progress.percent}%`; $('#report-progress-state').textContent = text; window.ReportMedia.setStatus(text, 'progress'); } else { $('#report-progress-state').textContent = 'Saving report…'; window.ReportMedia.setStatus('Saving report details…', 'progress'); } });
       }
-      window.ReportMedia.clear();
-      form.reset();
-      setReportCategory('');
-      updateLocationMapLink();
-      formMessage('Report submitted successfully. It is now visible in Explore; any optional GPS coordinates are public too.', 'success');
-      $('#report-progress-state').textContent = 'Reported · public';
-      $('#title-count').textContent = '0';
-      $('#description-count').textContent = '0';
-      $('#location-status').textContent = '';
-      $('#clear-location').hidden = true;
-    } catch (error) {
-      formMessage(`Submission could not be confirmed: ${error && error.message ? error.message : 'Check your connection, then review My Reports before trying again.'}`, 'error');
-      window.ReportMedia.setStatus(error && error.message ? error.message : 'The submission could not be confirmed.', 'error');
-    } finally {
-      window.ReportMedia.setBusy(false);
-      button.disabled = false;
-      button.innerHTML = '<span aria-hidden="true">↑</span> Submit incident report';
-    }
+      if (result.error) { formMessage(`Could not save changes: ${result.error.message}`, 'error'); $('#report-progress-state').textContent = 'Not saved'; return; }
+      const wasEditing = Boolean(editingReportId);
+      resetReportEditor();
+      formMessage(wasEditing ? 'Report updated successfully.' : 'Report submitted successfully. It is now visible in Explore; any optional GPS coordinates are public too.', 'success');
+      $('#report-progress-state').textContent = wasEditing ? 'Changes saved' : 'Reported · public';
+      if (wasEditing) showScreen('reports');
+    } catch (error) { formMessage(`Could not save the report: ${error && error.message ? error.message : 'Check your connection and try again.'}`, 'error'); }
+    finally { window.ReportMedia.setBusy(false); button.disabled = false; if (!editingReportId) button.innerHTML = '<span aria-hidden="true">↑</span> Submit incident report'; }
   }
   function showReportsState(title, body, actions = [], kind = 'empty') {
     const panel = $('#reports-state');
@@ -590,7 +604,7 @@
       const point = coordinates(item.latitude, item.longitude);
       const location = item.location_label || (point && point.label) || 'No location added';
       const mapLink = point ? mapPinLink(item) : '';
-      return `<li class="account-report-card"><div class="account-report-top"><div class="account-report-badges"><span class="account-report-status status-${statusKey}">${escapeHtml(statusLabel)}</span><span class="account-report-category">${escapeHtml(categoryLabel)}</span></div><time datetime="${escapeHtml(createdAt)}">${escapeHtml(date(createdAt))}</time></div><h3>${escapeHtml(item.title || 'Untitled report')}</h3><p class="account-report-description">${escapeHtml(excerpt)}</p><div class="account-report-location"><span aria-hidden="true">⌖</span><span>${escapeHtml(location)}</span>${mapLink}</div></li>`;
+      return `<li class="account-report-card"><div class="account-report-top"><div class="account-report-badges"><span class="account-report-status status-${statusKey}">${escapeHtml(statusLabel)}</span><span class="account-report-category">${escapeHtml(categoryLabel)}</span></div><time datetime="${escapeHtml(createdAt)}">${escapeHtml(date(createdAt))}</time></div><h3>${escapeHtml(item.title || 'Untitled report')}</h3><p class="account-report-description">${escapeHtml(excerpt)}</p><div class="account-report-location"><span aria-hidden="true">⌖</span><span>${escapeHtml(location)}</span>${mapLink}</div><div class="account-report-actions"><button type="button" class="secondary-button report-card-action" data-report-edit="${escapeHtml(item.id)}">Edit</button><button type="button" class="danger-button report-card-action" data-report-delete="${escapeHtml(item.id)}">Delete</button></div></li>`;
     }).join('');
   }
   async function loadReports() {
@@ -652,7 +666,7 @@
   document.addEventListener('focusin',(e)=>{if(e.target.matches('input:not([type="hidden"]),textarea')){document.body.classList.add('keyboard-open');setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),250);}});
   document.addEventListener('focusout',(e)=>{if(e.target.matches('input,textarea'))setTimeout(()=>{if(!document.activeElement.matches('input:not([type="hidden"]),textarea'))document.body.classList.remove('keyboard-open');},100);});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{if(window.visualViewport.height<window.innerHeight-140)document.body.classList.add('keyboard-open');else document.body.classList.remove('keyboard-open');});
-  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#reports-state-actions').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.reportsAuth)openAuth('reports',button.dataset.reportsAuth);else if(button.dataset.reportsAction==='retry')loadReports();else if(button.dataset.reportsAction==='create')showScreen('report');});document.querySelectorAll('[data-reports-filter]').forEach((button)=>button.addEventListener('click',()=>{reportsFilter=button.dataset.reportsFilter;renderMyReports();}));$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);document.addEventListener('reportmediachange',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device. You can enter a landmark instead.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{const point=coordinates(p.coords.latitude,p.coords.longitude);if(!point){$('#location-status').textContent='The device returned invalid coordinates. You can enter a landmark instead.';return;}$('#latitude').value=point.latitude;$('#longitude').value=point.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';updateLocationMapLink();markReportDraft();},(error)=>{const messages={1:'Location permission was denied. Enable location access in device settings or enter a landmark instead.',2:'The device could not determine your location. Check GPS availability or enter a landmark instead.',3:'Location lookup timed out. Try again or enter a landmark instead.'};$('#location-status').textContent=messages[error&&error.code]||'Location could not be determined. You can enter a landmark instead.';}, {enableHighAccuracy:false,maximumAge:30000,timeout:15000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-map-button-text').textContent='Choose location on map';$('#location-status').textContent='Selected coordinates removed from this report.';markReportDraft();});
+  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>{resetReportEditor();showScreen('feed');});$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#reports-state-actions').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.reportsAuth)openAuth('reports',button.dataset.reportsAuth);else if(button.dataset.reportsAction==='retry')loadReports();else if(button.dataset.reportsAction==='create')showScreen('report');});document.querySelector('#reports-list').addEventListener('click',(event)=>{const edit=event.target.closest('[data-report-edit]');if(edit){beginEditReport(edit.dataset.reportEdit);return;}const remove=event.target.closest('[data-report-delete]');if(remove)deleteOwnReport(remove.dataset.reportDelete);});document.querySelectorAll('[data-reports-filter]').forEach((button)=>button.addEventListener('click',()=>{reportsFilter=button.dataset.reportsFilter;renderMyReports();}));$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#delete-account').addEventListener('click', deleteAccount);$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);document.addEventListener('reportmediachange',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device. You can enter a landmark instead.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{const point=coordinates(p.coords.latitude,p.coords.longitude);if(!point){$('#location-status').textContent='The device returned invalid coordinates. You can enter a landmark instead.';return;}$('#latitude').value=point.latitude;$('#longitude').value=point.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';updateLocationMapLink();markReportDraft();},(error)=>{const messages={1:'Location permission was denied. Enable location access in device settings or enter a landmark instead.',2:'The device could not determine your location. Check GPS availability or enter a landmark instead.',3:'Location lookup timed out. Try again or enter a landmark instead.'};$('#location-status').textContent=messages[error&&error.code]||'Location could not be determined. You can enter a landmark instead.';}, {enableHighAccuracy:false,maximumAge:30000,timeout:15000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-map-button-text').textContent='Choose location on map';$('#location-status').textContent='Selected coordinates removed from this report.';markReportDraft();});
   $('#startup-retry').addEventListener('click', initializeStartup);
   $('#startup-guest').addEventListener('click', () => showApplication('feed'));
   $('#welcome-account').addEventListener('click', () => openAuth('welcome'));

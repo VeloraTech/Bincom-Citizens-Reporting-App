@@ -219,6 +219,41 @@
       return client.from('reports').select('id,title,description,category,status,created_at,location_label,latitude,longitude')
         .eq('reporter_id', current.data.session.user.id).order('created_at', { ascending: false });
     },
+    async updateReport(payload) {
+      if (!client) return { data: null, error: unavailable() };
+      return client.rpc('update_own_report', { p_report_id: payload.id, p_title: payload.title, p_category: payload.category, p_description: payload.description, p_location_label: payload.location_label, p_latitude: payload.latitude, p_longitude: payload.longitude });
+    },
+    async appendReportMedia(reportId, attachments = [], onProgress) {
+      if (!client) return { data: null, error: unavailable(), mayHaveSubmitted: false };
+      const current = await client.auth.getSession();
+      const session = current.data && current.data.session;
+      if (!session) return { data: null, error: new Error('Sign in is required.'), mayHaveSubmitted: false };
+      if (!attachments.length) return { data: [], error: null, mayHaveSubmitted: false };
+      const existing = await client.from('report_media').select('id').eq('report_id', reportId);
+      if (existing.error) return { data: null, error: existing.error, mayHaveSubmitted: false };
+      if ((existing.data || []).length + attachments.length > MAX_MEDIA_FILES) return { data: null, error: new Error('A report may contain no more than three attachments.'), mayHaveSubmitted: false };
+      const paths = []; const metadata = [];
+      try {
+        for (let index = 0; index < attachments.length; index += 1) {
+          const item = attachments[index];
+          const objectPath = `${session.user.id}/${reportId}/${makeUuid()}.${MEDIA_EXTENSIONS[item.mimeType]}`;
+          paths.push(objectPath);
+          await uploadWithTus(item.file, objectPath, item.mimeType, session.access_token, (percent) => { if (typeof onProgress === 'function') onProgress({ stage: 'upload', index: index + 1, total: attachments.length, percent }); });
+          metadata.push({ bucket_id: MEDIA_BUCKET, object_path: objectPath, media_type: item.mediaType, mime_type: item.mimeType, size_bytes: item.size });
+        }
+        const saved = await client.rpc('append_own_report_media', { p_report_id: reportId, p_media: metadata });
+        if (saved.error) { await removeUnlinked(paths); return { data: null, error: saved.error, mayHaveSubmitted: false }; }
+        return { data: metadata, error: null, mayHaveSubmitted: false };
+      } catch (error) {
+        const cleanupError = await removeUnlinked(paths);
+        return { data: null, error: new Error(`${error.message || 'The attachment upload failed.'}${cleanupError ? ' Uploaded files could not be cleaned up; contact support.' : ''}`), mayHaveSubmitted: false };
+      }
+    },
+    async accountAction(action, reportId) {
+      if (!client) return { data: null, error: unavailable() };
+      const result = await client.functions.invoke('account-actions', { body: { action, reportId } });
+      return { data: result.data, error: result.error || (result.data && result.data.error ? new Error(result.data.error) : null) };
+    },
     async createReport(payload, attachments = [], onProgress) {
       if (!client) return { data: null, error: unavailable(), mayHaveSubmitted: false };
       const current = await client.auth.getSession();
