@@ -34,8 +34,53 @@
   function resolveMime(file, name) {
     const reported = String(file && file.type || '').split(';')[0].trim().toLowerCase();
     if (ALLOWED_TYPES.has(reported)) return reported;
-    const extension = String(name || '').split('.').pop().toLowerCase();
+    const cleanName = String(name || file && file.name || '').split(/[?#]/)[0].split('/').pop();
+    const extension = cleanName && cleanName.includes('.') ? cleanName.slice(cleanName.lastIndexOf('.') + 1).toLowerCase() : '';
     return EXTENSION_TYPES[extension] || '';
+  }
+
+  function filenameFromUri(uri) {
+    const lastPart = String(uri || '').split(/[?#]/)[0].split('/').pop() || '';
+    try { return decodeURIComponent(lastPart).slice(0, 180) || 'attachment'; }
+    catch (_) { return lastPart.slice(0, 180) || 'attachment'; }
+  }
+
+  function readFileAsBlob(file, mimeType) {
+    return new Promise((resolve, reject) => {
+      if (typeof FileReader !== 'function') { reject(new Error('This Android WebView cannot read the selected file.')); return; }
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error || new Error('The selected file could not be read.'));
+      reader.onload = () => {
+        if (!reader.result) { reject(new Error('The selected file returned no data.')); return; }
+        try { resolve(new Blob([reader.result], { type: mimeType })); }
+        catch (error) { reject(error); }
+      };
+      try { reader.readAsArrayBuffer(file); }
+      catch (error) { reject(error); }
+    });
+  }
+
+  async function normalizeCordovaFile(file, preferredName) {
+    const name = String(preferredName || file && file.name || 'attachment').slice(0, 180);
+    const mimeType = resolveMime(file, name);
+    if (!mimeType) throw new Error('The file type is not supported. Choose a JPG, PNG, WebP, GIF, HEIC, MP4, WebM, MOV, 3GP, or M4V file.');
+    const size = Number(file && file.size);
+    if (!Number.isFinite(size) || size < 1) throw new Error('Android returned an empty file or a URI without readable file data.');
+    if (size > MAX_FILE_BYTES) throw new Error('Files must be 25 MiB or smaller.');
+
+    let blob = null;
+    try {
+      if (file && typeof file.slice === 'function') blob = file.slice(0, size, mimeType);
+    } catch (_) { /* Some Cordova File wrappers do not implement Blob.slice correctly. */ }
+    if (!blob || Number(blob.size) !== size) blob = await readFileAsBlob(file, mimeType);
+    if (!blob || Number(blob.size) !== size) throw new Error('The selected file could not be converted into uploadable data.');
+
+    let uploadFile = blob;
+    if (typeof File === 'function') {
+      try { uploadFile = new File([blob], name, { type: mimeType, lastModified: Number(file.lastModified) || Date.now() }); }
+      catch (_) { /* Blob is sufficient for TUS; its MIME type is set above. */ }
+    }
+    return { file: uploadFile, name, mimeType, size };
   }
 
   function formatBytes(bytes) {
@@ -141,12 +186,25 @@
           const replacement = state.replaceTargetId;
           state.replaceTargetId = null;
           if (!uri) { setStatus('No attachment selected.', ''); return; }
+          const fallbackName = filenameFromUri(uri);
           window.resolveLocalFileSystemURL(uri, (entry) => {
+            if (!entry || typeof entry.file !== 'function') {
+              setStatus(`Cannot attach ${fallbackName}: Android did not provide a readable file entry. Select another file or save it to the device first.`, 'error');
+              return;
+            }
             entry.file((file) => {
-              const filename = file.name || entry.name || 'attachment';
-              addFiles([{ file, name: filename }], replacement);
-            }, (error) => setStatus(`Could not read the selected file${error && error.message ? `: ${error.message}` : '.'}`, 'error'));
-          }, (error) => setStatus(`Could not open the selected file${error && error.message ? `: ${error.message}` : '.'}`, 'error'));
+              const filename = file && file.name || entry.name || fallbackName;
+              normalizeCordovaFile(file, filename)
+                .then((normalized) => addFiles([normalized], replacement))
+                .catch((error) => setStatus(`Cannot attach ${filename}: ${error && error.message ? error.message : 'the file could not be read.'} Try another file or save it to the device first.`, 'error'));
+            }, (error) => {
+              const reason = error && error.message ? error.message : error && error.code ? `Cordova file error ${error.code}` : 'the Android file grant may have expired';
+              setStatus(`Cannot attach ${fallbackName}: Android could not read the selected file (${reason}). Select it again or save it to the device first.`, 'error');
+            });
+          }, (error) => {
+            const reason = error && error.message ? error.message : error && error.code ? `Cordova URI error ${error.code}` : 'the Android content URI could not be resolved';
+            setStatus(`Cannot attach ${fallbackName}: Android could not open the selected media (${reason}). Select it again or save it to the device first.`, 'error');
+          });
         }, (error) => {
           state.replaceTargetId = null;
           const message = String(error && (error.message || error) || '');

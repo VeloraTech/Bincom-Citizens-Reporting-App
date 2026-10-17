@@ -6,10 +6,12 @@
   <meta name="theme-color" content="#FFFFFF">
   <meta name="description" content="See it. Report it. Improve it.">
   <title>WeSignal</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="css/app.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Public+Sans:wght@400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
 </head>
 <body>
   <section id="startup-splash" class="startup-splash" aria-label="Starting WeSignal">
@@ -79,6 +81,7 @@
 
     <main id="app" class="app-main">
       <section id="screen-feed" class="screen explore-screen" aria-labelledby="feed-title">
+        <div id="auth-callback-notice" class="auth-callback-notice" role="status" aria-live="polite" hidden></div>
         <div class="feed-context" aria-label="Feed context">
           <div class="feed-context-location"><span class="feed-live-dot" aria-hidden="true"></span><span>Public incidents</span><span class="feed-context-divider">·</span><span class="feed-context-secondary">Community feed</span></div>
           <span class="feed-context-tag"><span aria-hidden="true">◈</span> Civic Feed</span>
@@ -150,7 +153,7 @@
             </div>
             <div id="auth-confirm-field" class="auth-field" hidden>
               <label for="auth-confirm-password">Confirm Password</label>
-              <div class="auth-input-wrap"><span class="auth-input-icon" aria-hidden="true">⌑</span><input id="auth-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Enter your password again" disabled></div>
+              <div class="auth-input-wrap"><span class="auth-input-icon" aria-hidden="true">⌑</span><input id="auth-confirm-password" name="confirmPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Enter your password again" disabled><button id="toggle-confirm-password" class="auth-visibility" type="button" aria-label="Show confirm password" aria-pressed="false">Show</button></div>
             </div>
             <div id="auth-message" class="auth-alert" role="alert" aria-live="polite" hidden></div>
             <button id="auth-submit" class="auth-submit" type="submit"><span id="submit-spinner" class="auth-spinner" aria-hidden="true" hidden></span><span id="submit-text">Sign In</span><span id="submit-arrow" aria-hidden="true">→</span></button>
@@ -211,12 +214,12 @@
           <section class="report-step" aria-labelledby="report-location-heading">
             <div class="report-step-heading"><span class="report-step-number" aria-hidden="true">3</span><div><h3 id="report-location-heading">Location</h3><p>Add a landmark or optionally use your device location.</p></div><span class="report-optional">Optional</span></div>
             <div class="report-field"><label for="location-label">Street, landmark, or area</label><input id="location-label" name="location_label" type="text" maxlength="240" placeholder="e.g. Street name or nearby landmark"></div>
+            <button class="secondary-button location-button report-location-button" type="button" id="open-location-map"><span aria-hidden="true">⌖</span> <span id="location-map-button-text">Choose location on map</span></button>
             <button class="secondary-button location-button report-location-button" type="button" id="use-location"><span aria-hidden="true">⌖</span> Use my current location</button>
             <input id="latitude" name="latitude" type="hidden"><input id="longitude" name="longitude" type="hidden">
             <p id="location-status" class="field-hint report-location-status" aria-live="polite"></p>
-            <a id="location-map-link" class="location-map-link report-location-map-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open location pin on OpenStreetMap</a>
             <button id="clear-location" class="report-clear-location" type="button" hidden>Remove GPS coordinates</button>
-            <p class="report-location-note">GPS is optional. Any selected coordinates are published with a successful report. Opening the map link sends those coordinates to OpenStreetMap.</p>
+            <p class="report-location-note">GPS is optional. Search for an address or landmark, tap or drag the pin, then confirm it. Selected coordinates are published with a successful report.</p>
           </section>
           <section class="report-step" aria-labelledby="report-media-heading">
             <div class="report-step-heading"><span class="report-step-number" aria-hidden="true">4</span><div><h3 id="report-media-heading">Photo or video evidence</h3><p>Choose up to three clear images or clips.</p></div><span class="report-optional">Optional</span></div>
@@ -264,12 +267,27 @@
       <button class="nav-item" type="button" data-screen="reports"><span class="nav-icon note-icon" aria-hidden="true"></span><small>My reports</small></button>
     </nav>
   </div>
+  <section id="map-modal" class="map-modal" role="dialog" aria-modal="true" aria-labelledby="map-dialog-title" hidden>
+    <div class="map-dialog">
+      <header class="map-dialog-header"><div><p class="eyebrow">Incident location</p><h2 id="map-dialog-title">Choose incident location</h2></div><button id="map-close" class="map-close-button" type="button" aria-label="Close map">×</button></header>
+      <label class="map-search-label" for="map-search-query">Search a landmark or address</label>
+      <div class="map-search-form"><input id="map-search-query" type="search" autocomplete="off" placeholder="Street, landmark, or area"><button id="map-search-button" class="primary-button" type="button">Search</button></div>
+      <div id="map-search-results" class="map-search-results" aria-label="Address search results"></div>
+      <p id="map-status" class="map-status" role="status" aria-live="polite">Tap the map to place a pin, or search for a landmark or address.</p>
+      <div id="map-canvas" class="map-canvas" role="application" aria-label="Interactive map for choosing an incident location"></div>
+      <div class="map-dialog-actions"><button id="map-use-gps" class="secondary-button" type="button">Use current location</button><button id="map-cancel" class="secondary-button" type="button">Cancel</button><button id="map-save" class="primary-button" type="button">Use this location</button></div>
+    </div>
+  </section>
+  <script src="js/deep-link.js"></script>
   <script src="cordova.js" onerror="this.remove()"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="vendor/supabase/supabase.js"></script>
   <script src="env.js" onerror="this.remove()"></script>
+  <script src="vendor/leaflet/leaflet.js"></script>
   <script src="js/vendor/tus.min.js"></script>
   <script src="js/supabase.js"></script>
   <script src="js/report-media.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/auth-visibility.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

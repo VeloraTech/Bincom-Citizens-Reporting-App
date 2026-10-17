@@ -7,6 +7,9 @@
   let session = null; let activeFilter = 'all'; let incidents = []; let incidentMedia = Object.create(null); let feedRequest = 0; let detailRequest = 0; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
   let myReports = []; let reportsFilter = 'all'; let reportsRequest = 0;
   let authResolved = false; let startupResolved = false; let startupBusy = false; let authSubscription = null; let pendingStartupAuth = null; let authMode = 'signin';
+  const authCallbackPromises = new Map();
+  let startupAuthCallbackError = '';
+  let startupAuthCallbackSuccess = false;
   const escapeHtml = (v) => String(v || '').replace(/[&<>'"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const date = (v) => v ? new Date(v).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'Date unavailable';
   const relativeDate = (v) => { const time = Date.parse(v); if (!Number.isFinite(time)) return 'Date unavailable'; const mins = Math.max(0, Math.floor((Date.now() - time) / 60000)); if (mins < 1) return 'Just now'; if (mins < 60) return `${mins}m ago`; const hours = Math.floor(mins / 60); if (hours < 24) return `${hours}h ago`; const days = Math.floor(hours / 24); return days < 7 ? `${days}d ago` : date(v); };
@@ -19,25 +22,18 @@
       || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
     const lat = latitude.toFixed(5);
     const lon = longitude.toFixed(5);
-    return { latitude, longitude, label: `${lat}, ${lon}`, href: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}` };
+    return { latitude, longitude, label: `${lat}, ${lon}` };
   }
   function mapPinLink(item) {
     const point = coordinates(item && item.latitude, item && item.longitude);
     if (!point) return '';
-    return `<a class="location-map-link" href="${escapeHtml(point.href)}" target="_blank" rel="noopener noreferrer">Open map pin on OpenStreetMap</a>`;
+    const label = escapeHtml(item && item.location_label || '');
+    return `<button class="location-map-link" type="button" data-map-pin data-lat="${point.latitude}" data-lon="${point.longitude}" data-map-label="${label}">View pin in app map</button>`;
   }
   function updateLocationMapLink() {
-    const link = $('#location-map-link');
+    const buttonLabel = $('#location-map-button-text');
     const point = coordinates($('#latitude').value, $('#longitude').value);
-    if (!point) {
-      link.hidden = true;
-      link.removeAttribute('href');
-      link.textContent = '';
-      return;
-    }
-    link.href = point.href;
-    link.textContent = `View pin on OpenStreetMap · ${point.label}`;
-    link.hidden = false;
+    if (buttonLabel) buttonLabel.textContent = point ? `Change pin · ${point.label}` : 'Choose location on map';
   }
   function renderMediaMarkup(media, context) {
     const items = (Array.isArray(media) ? media : []).filter((item) => item && item.signed_url);
@@ -104,6 +100,51 @@
       if ($('#app-shell').hidden) setTimeout(() => showApplication('feed'), 0);
     }
   }
+  function exchangeAuthCallback(url) {
+    const key = String(url || '').trim();
+    if (!key) return Promise.resolve({ data: null, error: new Error('The confirmation link is empty.') });
+    if (!authCallbackPromises.has(key)) {
+      const request = Promise.resolve().then(() => window.BincomData.handleAuthRedirect(key))
+        .catch((error) => ({ data: null, error }));
+      authCallbackPromises.set(key, request);
+      window.setTimeout(() => authCallbackPromises.delete(key), 30000);
+    }
+    return authCallbackPromises.get(key);
+  }
+  function showAuthCallbackNotice(message, isError) {
+    const notice = $('#auth-callback-notice');
+    if (!notice) return;
+    notice.textContent = message;
+    notice.className = `auth-callback-notice${isError ? ' error' : ''}`;
+    notice.hidden = false;
+    window.setTimeout(() => { if (notice.textContent === message) notice.hidden = true; }, 8000);
+  }
+  async function processIncomingAuthCallback(url) {
+    const result = await exchangeAuthCallback(url);
+    if (result.error) {
+      if (!startupResolved) { startupAuthCallbackError = result.error.message || 'The email confirmation link could not be verified.'; return; }
+      openAuth('welcome', 'signin');
+      authMessage(result.error.message || 'The email confirmation link could not be verified. Request a new email and try again.', 'error');
+      return;
+    }
+    let nextSession = result.data && result.data.session || null;
+    if (!nextSession) {
+      const restored = await window.BincomData.getSession();
+      nextSession = restored.data && restored.data.session || null;
+    }
+    if (!nextSession) {
+      const message = 'The email link was opened, but Supabase did not create a signed-in session. Check the link and try again.';
+      if (!startupResolved) { startupAuthCallbackError = message; return; }
+      openAuth('welcome', 'signin');
+      authMessage(message, 'error');
+      return;
+    }
+    if (!startupResolved) { startupAuthCallbackSuccess = true; return; }
+    authResolved = true;
+    updateSession(nextSession);
+    showApplication('feed');
+    showAuthCallbackNotice('Email confirmed. You are signed in.', false);
+  }
   async function initializeStartup() {
     if (startupBusy) return;
     startupBusy = true;
@@ -115,6 +156,11 @@
         authSubscription = listener && listener.data && listener.data.subscription;
       }
       if (!window.BincomData.isConfigured()) throw new Error(window.BincomData.configurationMessage());
+      const callbackUrl = String(window.__weSignalPendingAuthUrl || '').trim();
+      if (callbackUrl) {
+        window.__weSignalPendingAuthUrl = '';
+        await processIncomingAuthCallback(callbackUrl);
+      }
       setStartupProgress(42, 'Restoring sign-in state');
       const restored = await window.BincomData.getSession();
       if (restored.error) throw restored.error;
@@ -141,6 +187,15 @@
       setStartupProgress(92, current ? 'Opening Explore' : 'Preparing welcome');
       if (current) showApplication('feed');
       else showWelcome();
+      if (startupAuthCallbackError) {
+        const message = startupAuthCallbackError;
+        startupAuthCallbackError = '';
+        if (current) showAuthCallbackNotice(message, true);
+        else { openAuth('welcome', 'signin'); authMessage(message, 'error'); }
+      } else if (current && startupAuthCallbackSuccess) {
+        startupAuthCallbackSuccess = false;
+        showAuthCallbackNotice('Email confirmed. You are signed in.', false);
+      }
     } catch (error) {
       // Keep any persisted session intact; a network or initialization failure is not proof of sign-out.
       authResolved = false;
@@ -150,7 +205,14 @@
         ? error.message
         : 'We couldn’t verify your sign-in. Check your connection and try again. Your saved session has not been cleared.';
       showStartupFailure(message);
-    } finally { startupBusy = false; }
+    } finally {
+      startupBusy = false;
+      const deferredUrl = String(window.__weSignalPendingAuthUrl || '').trim();
+      if (startupResolved && deferredUrl) {
+        window.__weSignalPendingAuthUrl = '';
+        processIncomingAuthCallback(deferredUrl);
+      }
+    }
   }
   function showScreen(name) { screens.forEach((s) => { const on=s.id===`screen-${name}`; s.hidden=!on; s.classList.toggle('is-active',on); }); const screenTitles={feed:'Explore',detail:'Incident details',auth:'Authentication',report:'Report an issue',reports:'My Reports'}; $('#header-screen-title').textContent=screenTitles[name]||'WeSignal'; document.body.classList.toggle('feed-screen-active',name==='feed'); document.body.classList.toggle('report-screen-active',name==='report'); document.body.classList.toggle('reports-screen-active',name==='reports'); document.body.classList.toggle('form-active',name==='report'||name==='auth'); document.body.classList.toggle('auth-screen-active',name==='auth'); document.body.classList.remove('keyboard-open'); document.querySelectorAll('[data-screen]').forEach((n)=>n.classList.toggle('is-selected',n.dataset.screen===name)); if(name==='feed') loadFeed(); if(name==='report') updateGate(); if(name==='reports') loadReports(); window.scrollTo({top:0,behavior:'smooth'}); }
   function state(el,title,body,retry) { el.innerHTML=`<h3>${title}</h3><p>${body}</p>${retry?'<button class="secondary-button retry-button" type="button">Try again</button>':''}`; if(retry) el.querySelector('button').addEventListener('click',retry); }
@@ -590,10 +652,16 @@
   document.addEventListener('focusin',(e)=>{if(e.target.matches('input:not([type="hidden"]),textarea')){document.body.classList.add('keyboard-open');setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),250);}});
   document.addEventListener('focusout',(e)=>{if(e.target.matches('input,textarea'))setTimeout(()=>{if(!document.activeElement.matches('input:not([type="hidden"]),textarea'))document.body.classList.remove('keyboard-open');},100);});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{if(window.visualViewport.height<window.innerHeight-140)document.body.classList.add('keyboard-open');else document.body.classList.remove('keyboard-open');});
-  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#reports-state-actions').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.reportsAuth)openAuth('reports',button.dataset.reportsAuth);else if(button.dataset.reportsAction==='retry')loadReports();else if(button.dataset.reportsAction==='create')showScreen('report');});document.querySelectorAll('[data-reports-filter]').forEach((button)=>button.addEventListener('click',()=>{reportsFilter=button.dataset.reportsFilter;renderMyReports();}));$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);document.addEventListener('reportmediachange',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device. You can enter a landmark instead.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{const point=coordinates(p.coords.latitude,p.coords.longitude);if(!point){$('#location-status').textContent='The device returned invalid coordinates. You can enter a landmark instead.';return;}$('#latitude').value=point.latitude;$('#longitude').value=point.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';updateLocationMapLink();markReportDraft();},(error)=>{const messages={1:'Location permission was denied. Enable location access in device settings or enter a landmark instead.',2:'The device could not determine your location. Check GPS availability or enter a landmark instead.',3:'Location lookup timed out. Try again or enter a landmark instead.'};$('#location-status').textContent=messages[error&&error.code]||'Location could not be determined. You can enter a landmark instead.';}, {enableHighAccuracy:false,maximumAge:30000,timeout:15000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-map-link').hidden=true;$('#location-map-link').removeAttribute('href');$('#location-status').textContent='GPS coordinates removed from this report.';markReportDraft();});
+  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#reports-state-actions').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.reportsAuth)openAuth('reports',button.dataset.reportsAuth);else if(button.dataset.reportsAction==='retry')loadReports();else if(button.dataset.reportsAction==='create')showScreen('report');});document.querySelectorAll('[data-reports-filter]').forEach((button)=>button.addEventListener('click',()=>{reportsFilter=button.dataset.reportsFilter;renderMyReports();}));$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);document.addEventListener('reportmediachange',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device. You can enter a landmark instead.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{const point=coordinates(p.coords.latitude,p.coords.longitude);if(!point){$('#location-status').textContent='The device returned invalid coordinates. You can enter a landmark instead.';return;}$('#latitude').value=point.latitude;$('#longitude').value=point.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';updateLocationMapLink();markReportDraft();},(error)=>{const messages={1:'Location permission was denied. Enable location access in device settings or enter a landmark instead.',2:'The device could not determine your location. Check GPS availability or enter a landmark instead.',3:'Location lookup timed out. Try again or enter a landmark instead.'};$('#location-status').textContent=messages[error&&error.code]||'Location could not be determined. You can enter a landmark instead.';}, {enableHighAccuracy:false,maximumAge:30000,timeout:15000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-map-button-text').textContent='Choose location on map';$('#location-status').textContent='Selected coordinates removed from this report.';markReportDraft();});
   $('#startup-retry').addEventListener('click', initializeStartup);
   $('#startup-guest').addEventListener('click', () => showApplication('feed'));
   $('#welcome-account').addEventListener('click', () => openAuth('welcome'));
   $('#welcome-signin').addEventListener('click', () => openAuth('welcome'));
+  window.addEventListener('wesignal:deep-link', (event) => {
+    const url = String(event && event.detail && event.detail.url || '').trim();
+    if (!url) return;
+    if (!startupResolved || startupBusy) { window.__weSignalPendingAuthUrl = url; return; }
+    processIncomingAuthCallback(url);
+  });
   (function init() { document.addEventListener('error', handleIncidentMediaError, true); window.ReportMedia.init(); renderFilters(); initializeStartup(); }());
 })();

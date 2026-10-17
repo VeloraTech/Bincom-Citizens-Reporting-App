@@ -13,6 +13,7 @@
     'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif',
     'video/mp4', 'video/webm', 'video/quicktime', 'video/3gpp', 'video/x-m4v'
   ]);
+  const MOBILE_AUTH_REDIRECT = 'com.bincom.citizensreporting://auth/callback';
   const MEDIA_EXTENSIONS = {
     'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
     'image/heic': 'heic', 'image/heif': 'heif', 'video/mp4': 'mp4', 'video/webm': 'webm',
@@ -21,13 +22,64 @@
   let client = null;
   if (hasConfig && window.supabase && typeof window.supabase.createClient === 'function') {
     client = window.supabase.createClient(config.supabaseUrl, publicKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce' }
     });
   }
 
   const unavailable = () => new Error(hasConfig
     ? 'Supabase could not be initialized. Check the public URL and anon/publishable key.'
     : 'Supabase is not configured. Add the public URL and anon/publishable key in www/env.js.');
+
+  function authRedirectUrl() {
+    const configured = String(config.authRedirectUrl || '').trim();
+    if (window.cordova) return configured || MOBILE_AUTH_REDIRECT;
+    if (/^https?:$/.test(window.location && window.location.protocol)) {
+      if (configured && /^https?:\/\//i.test(configured)) return configured;
+      return `${window.location.origin}${window.location.pathname || '/'}`;
+    }
+    return configured || MOBILE_AUTH_REDIRECT;
+  }
+
+  async function handleAuthRedirect(rawUrl) {
+    if (!client) return { data: null, error: unavailable() };
+    let parsed;
+    try { parsed = new URL(String(rawUrl || '')); }
+    catch (_) { return { data: null, error: new Error('The confirmation link is not a valid URL. Request a new email and try again.') }; }
+
+    if (window.cordova) {
+      let expected;
+      try { expected = new URL(authRedirectUrl()); }
+      catch (_) { expected = new URL(MOBILE_AUTH_REDIRECT); }
+      if (parsed.protocol !== expected.protocol || parsed.host !== expected.host || parsed.pathname !== expected.pathname) {
+        return { data: null, error: new Error('This confirmation link is for a different app or page.') };
+      }
+    } else if (/^https?:$/.test(window.location && window.location.protocol) && parsed.origin !== window.location.origin) {
+      return { data: null, error: new Error('This authentication link belongs to a different website.') };
+    }
+
+    const query = new URLSearchParams(parsed.search);
+    const fragment = new URLSearchParams(String(parsed.hash || '').replace(/^#/, ''));
+    const get = (name) => query.get(name) || fragment.get(name) || '';
+    const errorText = get('error_description') || get('error');
+    if (errorText) return { data: null, error: new Error(errorText) };
+
+    const code = get('code');
+    if (code) return client.auth.exchangeCodeForSession(code);
+
+    const tokenHash = get('token_hash');
+    const otpType = get('type');
+    const allowedOtpTypes = new Set(['signup', 'invite', 'magiclink', 'recovery', 'email_change', 'email']);
+    if (tokenHash && allowedOtpTypes.has(otpType)) {
+      return client.auth.verifyOtp({ token_hash: tokenHash, type: otpType });
+    }
+
+    const accessToken = get('access_token');
+    const refreshToken = get('refresh_token');
+    if (accessToken && refreshToken) {
+      return client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+    }
+    return { data: null, error: new Error('The confirmation link is missing its sign-in code or has expired. Request a new confirmation email.') };
+  }
 
   function makeUuid() {
     if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
@@ -142,7 +194,9 @@
     async getUser() { return client ? client.auth.getUser() : { data: { user: null }, error: unavailable() }; },
     async clearLocalSession() { return client ? client.auth.signOut({ scope: 'local' }) : { error: unavailable() }; },
     onAuthStateChange(callback) { return client ? client.auth.onAuthStateChange(callback) : { data: { subscription: { unsubscribe() {} } } }; },
-    async signUp(email, password) { return client ? client.auth.signUp({ email, password }) : { data: null, error: unavailable() }; },
+    async signUp(email, password) { return client ? client.auth.signUp({ email, password, options: { emailRedirectTo: authRedirectUrl() } }) : { data: null, error: unavailable() }; },
+    async handleAuthRedirect(url) { return handleAuthRedirect(url); },
+    authRedirectUrl,
     async signIn(email, password) { return client ? client.auth.signInWithPassword({ email, password }) : { data: null, error: unavailable() }; },
     async resetPassword(email) { return client ? client.auth.resetPasswordForEmail(email) : { data: null, error: unavailable() }; },
     async signOut() { return client ? client.auth.signOut() : { error: unavailable() }; },

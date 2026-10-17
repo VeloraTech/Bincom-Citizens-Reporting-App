@@ -35,6 +35,7 @@ jobs:
         with:
           packages: >-
             platform-tools
+            platforms;android-34
             platforms;android-35
             build-tools;35.0.0
 
