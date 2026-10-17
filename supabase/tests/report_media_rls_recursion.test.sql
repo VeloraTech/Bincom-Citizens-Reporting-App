@@ -127,13 +127,14 @@ select extensions.throws_ok(
   '42501', null,
   'another user cannot delete private report media metadata'
 );
+with deleted as (
+  delete from storage.objects
+  where bucket_id = 'wesignal-report-media'
+    and name = '30000000-0000-4000-8000-000000000001/40000000-0000-4000-8000-000000000005/50000000-0000-4000-8000-000000000005.jpg'
+  returning 1
+)
 select extensions.is(
-  (with deleted as (
-    delete from storage.objects
-    where bucket_id = 'wesignal-report-media'
-      and name = '30000000-0000-4000-8000-000000000001/40000000-0000-4000-8000-000000000005/50000000-0000-4000-8000-000000000005.jpg'
-    returning 1
-  ) select pg_catalog.count(*)::integer from deleted),
+  (select pg_catalog.count(*)::integer from deleted),
   0,
   'another user cannot delete a linked private Storage object'
 );
