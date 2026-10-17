@@ -215,7 +215,7 @@
           const message = String(error && (error.message || error) || '');
           if (/cancel|no media|no image selected/i.test(message)) setStatus('Media selection cancelled.', '');
           else setStatus(`Could not open the media library${message ? `: ${message}` : '.'}`, 'error');
-        }, { sourceType, destinationType, mediaType, encodingType: constants.EncodingType ? constants.EncodingType.JPEG : 0, correctOrientation: true });
+        }, { sourceType, destinationType, mediaType, allowEdit: false, correctOrientation: true });
       } catch (error) {
         state.replaceTargetId = null;
         setStatus(`Could not open the media library: ${error && error.message ? error.message : 'unsupported device.'}`, 'error');
