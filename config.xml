@@ -14,8 +14,9 @@
   <preference name="AndroidXEnabled" value="true" />
   <preference name="GradlePluginGoogleServicesEnabled" value="false" />
   <preference name="DisallowOverscroll" value="true" />
-  <preference name="StatusBarStyle" value="lightcontent" />
-  <preference name="StatusBarBackgroundColor" value="#1769E0" />
+  <preference name="StatusBarOverlaysWebView" value="false" />
+  <preference name="StatusBarStyle" value="default" />
+  <preference name="StatusBarBackgroundColor" value="#FFFFFF" />
   <preference name="AndroidWindowSplashScreenAnimatedIcon" value="resources/android/icon-512.png" />
   <preference name="AndroidWindowSplashScreenBackground" value="#FFFFFF" />
   <icon src="resources/android/icon-512.png" />

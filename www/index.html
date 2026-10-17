@@ -160,7 +160,7 @@
             <button id="auth-guest" class="auth-guest-button" type="button"><span aria-hidden="true">◉</span><span>Browse Alerts as Guest</span><span class="auth-limited">Public feed</span></button>
           </div>
           <div class="auth-trust-grid">
-            <div class="auth-trust-card"><span class="auth-trust-icon" aria-hidden="true">⌑</span><span><strong>Private by default</strong><small>Your reports are not published automatically.</small></span></div>
+            <div class="auth-trust-card"><span class="auth-trust-icon" aria-hidden="true">⌑</span><span><strong>Public after submission</strong><small>Successfully submitted reports appear in Explore automatically.</small></span></div>
             <div class="auth-trust-card"><span class="auth-trust-icon" aria-hidden="true">◎</span><span><strong>Guest browsing</strong><small>Explore public incidents without an account.</small></span></div>
           </div>
           <p class="auth-legal">Sign in or create an account to submit a report. You can browse public reports as a guest.</p>
@@ -214,8 +214,9 @@
             <button class="secondary-button location-button report-location-button" type="button" id="use-location"><span aria-hidden="true">⌖</span> Use my current location</button>
             <input id="latitude" name="latitude" type="hidden"><input id="longitude" name="longitude" type="hidden">
             <p id="location-status" class="field-hint report-location-status" aria-live="polite"></p>
+            <a id="location-map-link" class="location-map-link report-location-map-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open location pin on OpenStreetMap</a>
             <button id="clear-location" class="report-clear-location" type="button" hidden>Remove GPS coordinates</button>
-            <p class="report-location-note">GPS is optional. If used, your coordinates are included with this report. Submitted reports are private by default and are not published automatically.</p>
+            <p class="report-location-note">GPS is optional. Any selected coordinates are published with a successful report. Opening the map link sends those coordinates to OpenStreetMap.</p>
           </section>
           <section class="report-step" aria-labelledby="report-media-heading">
             <div class="report-step-heading"><span class="report-step-number" aria-hidden="true">4</span><div><h3 id="report-media-heading">Photo or video evidence</h3><p>Choose up to three clear images or clips.</p></div><span class="report-optional">Optional</span></div>
@@ -229,7 +230,7 @@
             <div id="media-preview-list" class="report-media-preview-list" aria-label="Selected report attachments"></div>
             <p id="media-status" class="media-status" role="status" aria-live="polite" hidden></p>
           </section>
-          <aside class="report-privacy-note"><span class="report-privacy-icon" aria-hidden="true">i</span><p><strong>Private by default</strong>Your report is tied to your signed-in account and is not published automatically.</p></aside>
+          <aside class="report-privacy-note"><span class="report-privacy-icon" aria-hidden="true">i</span><p><strong>Public after submission</strong>After a successful submission, the report and any optional GPS coordinates are visible to everyone in Explore.</p></aside>
           <div id="form-message" class="form-message" role="alert" aria-live="polite"></div>
           <button class="primary-button full-width report-submit-button" type="submit"><span aria-hidden="true">↑</span> Submit incident report</button>
           <p class="report-submit-note">Review your details before submitting. You can browse public reports without an account.</p>

@@ -3,34 +3,34 @@
 ## Welcome and onboarding — complete
 - [x] First-launch welcome explains public browsing and registered-user reporting, with Get started and Skip for now.
 - [x] Onboarding completion persists in local storage; Skip goes directly to the feed.
-- [x] Location permission is requested only from the report form after an explicit tap, with a landmark fallback.
+- [x] Location permission is requested only after an explicit tap in the report form, with a landmark fallback.
 
 ## Public incident feed and details — complete in code, live backend pending
-- [x] Guests and authenticated users can browse published/public incidents from the configured Supabase backend.
+- [x] Guests and authenticated users can browse reports where `is_public = true` from the configured Supabase backend.
 - [x] Category filtering, active state, reset, incident cards, details and back navigation are implemented.
-- [x] Loading skeleton, honest empty, missing-configuration, backend error and retry states are implemented without mock content.
-- [ ] Apply the additive migration to a real Supabase project and publish authorized rows before live feed data can appear.
+- [x] Feed refreshes when users return to Explore; loading, empty, missing-configuration, backend error and retry states do not use fake reports.
+- [x] Public report cards/details show authorized image/video media and optional coordinate/map-pin links.
+- [ ] Apply the required migrations to a real Supabase project and verify live Explore data, Storage reads and signed URLs.
 
 ## Authentication and report gating — complete in code, live backend pending
-- [x] Real email/password sign-up, sign-in, sign-out, and session restoration use the existing Supabase client.
+- [x] Real email/password sign-up, sign-in, sign-out and session restoration use the existing Supabase client.
 - [x] Guests see a Login/Create account gate when starting a report; the draft remains on screen and auth returns to report intent.
-- [x] Auth validation, disabled/loading states, understandable errors, and success feedback are implemented.
-- [x] The client adapter checks session and forces `is_public: false`; database RLS migration enforces the same boundary.
-- [ ] Verify live auth and submission against a correctly configured Supabase project.
+- [x] Auth validation, disabled/loading states, understandable errors and success feedback are implemented.
+- [x] Guests cannot submit. Authenticated submissions are owner-scoped and automatically public only after the ordered publication migration is applied.
+- [x] New reports stay in initial `submitted`/Reported-open status; no submission path marks a report resolved or grants client update/delete.
+- [ ] Verify live authentication, submission, RLS and owner isolation against a configured Supabase project.
 
-## Existing report flow and delivery — complete in code
-- [x] Milestone 1 report validation, fields, and explicit geolocation flow are preserved.
-- [x] Additive public visibility migration and documentation are included.
-- [x] JavaScript syntax, diff hygiene, bundle serving, and tracked-file secret scan completed.
-- [ ] Android debug APK: blocked in this sandbox because Java JDK, Android SDK, and Gradle are unavailable.
+## Reporting media, taxonomy and Supabase setup — complete in code
+- [x] Use the eleven canonical categories consistently across the report form, filters, feed, details and database enum; additive migration renames legacy enum labels without deleting report rows.
+- [x] Cordova-compatible photo/video picker with browser fallback, previews, up to three files, replacement/removal, size/type validation and local error states.
+- [x] Resumable TUS uploads target the private `wesignal-report-media` bucket; report and media metadata are written atomically through the authenticated submission RPC.
+- [x] The private bucket, Storage RLS, report-media metadata policies, ownership constraints, indexes and submission/publication migrations are documented in order.
+- [x] Frontend configuration uses only a public anon/publishable key; never place a service-role key or database secret in the app.
+- [ ] Apply migrations 3–5 (if migrations 1–2 already exist) to the intended project and test live uploads/publication with non-sensitive test data.
 
-
-## Reporting media, taxonomy, and Supabase setup follow-up
-- [x] Replace legacy report-category values in place and add the complete eleven-category taxonomy used by the report form, feed filters, cards, details, and enum.
-- [x] Add a Cordova-compatible photo/video library picker and browser fallback with previews, three-file/25 MiB checks, replacement/removal, and local error/loading states.
-- [x] Upload selected files to a private Supabase Storage bucket using resumable TUS; create owner-scoped metadata in the same transaction as a private report.
-- [x] Render public report images and playable video in Explore cards and incident details through expiring signed URLs; preserve explicit media failure feedback.
-- [x] Add ordered, additive SQL migrations, ownership/RLS policies, indexes/triggers, a private bucket definition, and setup/security documentation.
-- [x] Keep frontend configuration limited to a public anon/publishable key; do not ship a service-role or database secret.
-- [ ] Apply the two new migrations to the intended Supabase project, confirm the bucket/RLS settings, and verify live auth, report submission, upload, publication, and signed reads with test data.
-- [ ] Build and test the Android APK on a machine with the supported JDK and Android SDK.
+## Location, status bar and Android — complete in code, device build pending
+- [x] Optional Cordova geolocation with validated coordinate pairs, saved coordinate reads, OpenStreetMap pin links, and distinct denied/unavailable/timeout feedback.
+- [x] Native GPS hardware is not mandatory; missing GPS can fall back to the available location provider or a landmark.
+- [x] Android status bar is white with dark icons and does not overlay content; Explore account avatar retains a subtle blue ring.
+- [x] `cordova prepare android` succeeds and adds native location permissions; local mobile smoke and static checks pass.
+- [ ] Build/install and exercise the Android app on a machine/device with a complete JDK and Android SDK toolchain. The current sandbox has no `javac`, Android SDK/`ANDROID_HOME`, or Gradle.
