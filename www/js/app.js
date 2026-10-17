@@ -232,6 +232,20 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function state(el,title,body,retry) { const headingId=el.id==='detail-content'?' id="detail-title"':''; el.innerHTML=`<h3${headingId}>${title}</h3><p>${body}</p>${retry?'<button class="secondary-button retry-button" type="button">Try again</button>':''}`; if(retry) el.querySelector('button').addEventListener('click',retry); }
+  function serviceErrorText(error) {
+    const helper = window.WeSignalServiceErrors;
+    return helper ? helper.describe(error, window.navigator && window.navigator.onLine) : escapeHtml(error && error.message || 'The service request failed.');
+  }
+  function showFeedFailure(target, error, retry) {
+    const helper = window.WeSignalServiceErrors;
+    const online = window.navigator && window.navigator.onLine;
+    if (helper && helper.isOffline(error, online)) {
+      state(target, 'Internet connection not working', 'Please check your internet connection and try again. Published incidents remain connected to real data; no sample content has been shown.', retry);
+      return;
+    }
+    const diagnostic = escapeHtml(serviceErrorText(error));
+    state(target, 'We could not load incidents', `${diagnostic || 'The service request failed.'} Published incidents have not been replaced with sample content.`, retry);
+  }
   function renderFilters() {
     const el = $('#category-filters');
     const filters = ['all', ...Object.keys(labels)];
@@ -286,10 +300,8 @@
       const result = await window.BincomData.listPublicReports();
       if (requestId !== feedRequest) return;
       if (result.error) {
-        console.error('Published incident query failed', result.error);
-        const detail = [result.error.code, result.error.message, result.error.details, result.error.hint].filter(Boolean).join(' · ');
-        const explanation = detail ? `Supabase error: ${escapeHtml(detail)}` : 'Supabase returned an unspecified error.';
-        state(st, 'We could not load incidents', `${explanation} Published incidents have not been replaced with sample content.`, loadFeed);
+        console.error('Published incident query failed:', serviceErrorText(result.error));
+        showFeedFailure(st, result.error, loadFeed);
         return;
       }
       incidents = result.data || [];
@@ -310,9 +322,8 @@
       renderIncidents();
     } catch (error) {
       if (requestId !== feedRequest) return;
-      console.error('Published incident query threw an exception', error);
-      const detail = error && error.message ? `Query error: ${escapeHtml(error.message)}` : 'The request failed before Supabase returned a response.';
-      state(st, 'We could not load incidents', `${detail} Published incidents have not been replaced with sample content.`, loadFeed);
+      console.error('Published incident query threw an exception:', serviceErrorText(error));
+      showFeedFailure(st, error, loadFeed);
     }
   }
   async function openDetail(id) {
@@ -333,6 +344,7 @@
         window.BincomData.getPublicReportConfirmationSummary(id)
       ]);
       if (requestId !== detailRequest) return;
+      if (confirmationResult.error) console.error('Public confirmation summary query failed:', serviceErrorText(confirmationResult.error));
       const mediaHtml = renderMediaMarkup(mediaResult.data, 'detail');
       const mediaUnavailable = Boolean(mediaResult.error || (mediaResult.failedCount && !mediaHtml));
       const mediaWarning = mediaResult.failedCount && mediaHtml
@@ -340,7 +352,7 @@
       const point = coordinates(incident.latitude, incident.longitude);
       target.innerHTML = window.WeSignalIncidentDetailView.render({
         incident,
-        summary: confirmationResult.error ? { error: true } : confirmationResult.data,
+        summary: confirmationResult.error ? { error: true, errorMessage: serviceErrorText(confirmationResult.error) } : confirmationResult.data,
         signedIn: Boolean(session),
         categoryLabel: labels[incident.category] || incident.category,
         statusLabel: statuses[incident.status] || incident.status || 'Published',

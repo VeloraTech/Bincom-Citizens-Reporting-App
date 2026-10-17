@@ -653,3 +653,5 @@ body.detail-screen-active #screen-detail > .back-button { min-height: 44px; marg
 .account-refresh-button { display: block; min-height: 34px; margin: 8px auto 0; padding: 5px 10px; border: 1px solid #E5E2E1; border-radius: 999px; color: #003D8E; background: #FFFFFF; font: 600 9px/1.2 "Hanken Grotesk", sans-serif; }
 .account-refresh-button:hover { background: #F6F8FE; }
 .account-refresh-button:focus-visible { outline: 2px solid #246FE7; outline-offset: 2px; }
+
+.detail-error-diagnostic { margin: 7px 0 11px; padding: 9px 10px; border-left: 3px solid #D98B00; border-radius: 3px 8px 8px 3px; color: #5B410A; background: #FFF8E6; font: 500 10px/1.5 "Public Sans", sans-serif; overflow-wrap: anywhere; }
