@@ -187,7 +187,7 @@
         3: 'Location lookup timed out. Try again or choose a pin on the map.'
       };
       setStatus(messages[error && error.code] || 'Location could not be determined. Choose a pin on the map instead.', 'error');
-    }, { enableHighAccuracy: true, maximumAge: 30000, timeout: 15000 });
+    }, { enableHighAccuracy: false, maximumAge: 30000, timeout: 30000 });
   }
 
   function resultLabel(properties) {

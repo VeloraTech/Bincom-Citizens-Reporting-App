@@ -1,13 +1,13 @@
 {
   "name": "bincom-citizens-reporting-app",
   "displayName": "WeSignal",
-  "version": "1.0.0",
+  "version": "0.1.18",
   "description": "A transparent mobile foundation for reporting and tracking community issues.",
   "main": "index.js",
   "scripts": {
     "prepare": "cordova prepare",
     "start": "cordova serve",
-    "check": "node --check www/js/app.js && node --check www/js/supabase.js && node --check www/js/report-media.js && node --check www/js/map.js && node --check www/js/deep-link.js && node --check www/js/auth-visibility.js && node --check www/js/service-errors.js && node --check www/js/incident-detail-view.js && node tools/test-android-media-picker.js && node tools/test-incident-detail-view.js && node tools/test-account-dashboard-edit.js && node tools/test-service-errors.js && node tools/test-live-notification-wiring.js",
+    "check": "node --check www/js/app.js && node --check www/js/supabase.js && node --check www/js/report-media.js && node --check www/js/map.js && node --check www/js/deep-link.js && node --check www/js/auth-visibility.js && node --check www/js/service-errors.js && node --check www/js/incident-detail-view.js && node tools/test-android-media-picker.js && node tools/test-incident-detail-view.js && node tools/test-account-dashboard-edit.js && node tools/test-service-errors.js && node tools/test-live-notification-wiring.js && node tools/test-location-settings.js",
     "build:android": "cordova build android --debug"
   },
   "keywords": [

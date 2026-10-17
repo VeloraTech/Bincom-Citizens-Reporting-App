@@ -1,0 +1,99 @@
+name: Publish Android preview release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify release tag and source version
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          CONFIG_VERSION="$(sed -n 's/.*<widget[^>]*version="\([^"]*\)".*/\1/p' config.xml | head -1)"
+          [[ "$VERSION" == "$PACKAGE_VERSION" ]] || { echo "Tag $VERSION does not match package version $PACKAGE_VERSION" >&2; exit 1; }
+          [[ "$VERSION" == "$CONFIG_VERSION" ]] || { echo "Tag $VERSION does not match Cordova version $CONFIG_VERSION" >&2; exit 1; }
+          git fetch origin main --quiet
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo 'Release tags must point to a commit merged into main.' >&2; exit 1; }
+          echo "RELEASE_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-34
+            platforms;android-35
+            build-tools;35.0.0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure public Supabase runtime settings
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_PUBLIC_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const url = (process.env.SUPABASE_URL || '').trim();
+          const key = (process.env.SUPABASE_PUBLIC_KEY || '').trim();
+          if (!url || !key) { console.error('Missing SUPABASE_URL and/or public SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY).'); process.exit(1); }
+          let parsed; try { parsed = new URL(url); } catch { process.exitCode = 1; console.error('SUPABASE_URL must be HTTPS.'); process.exit(); }
+          if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) { console.error('SUPABASE_URL must be HTTPS.'); process.exit(1); }
+          const publishable = /^sb_publishable_[A-Za-z0-9_-]+$/i.test(key);
+          let anon = false;
+          if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(key)) { try { anon = JSON.parse(Buffer.from(key.split('.')[1], 'base64url').toString()).role === 'anon'; } catch {} }
+          if (!publishable && !anon) { console.error('Only a public publishable or anon key is accepted.'); process.exit(1); }
+          fs.writeFileSync('www/env.js', `window.BINCOM_CONFIG = ${JSON.stringify({supabaseUrl:url,supabaseAnonKey:key},null,2)};\n`, {mode:0o600});
+          NODE
+
+      - name: Run source checks
+        run: npm run check
+
+      - name: Verify Cordova Android requirements
+        run: npx cordova requirements android
+
+      - name: Build debug APK
+        run: npm run build:android
+
+      - name: Prepare release asset
+        run: cp platforms/android/app/build/outputs/apk/debug/app-debug.apk "WeSignal-${RELEASE_VERSION}-android-debug.apk"
+
+      - name: Create GitHub Release and upload APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "WeSignal-${RELEASE_VERSION}-android-debug.apk#WeSignal Android preview APK (debug-signed)" \
+            --title "WeSignal ${RELEASE_VERSION}" \
+            --notes "Installable Android preview build from the merged release commit. This APK is debug-signed for sideload testing, not a production/Google Play release. A stable release keystore is required for reliable in-place upgrades between future APKs. Source archives are available below."
