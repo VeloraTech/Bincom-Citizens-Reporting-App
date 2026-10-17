@@ -1,0 +1,104 @@
+name: Deploy Supabase and build Android
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wesignal-production-deploy
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Validate migration SQL against local Supabase
+        run: |
+          supabase start
+          supabase db lint --local --fail-on error
+          supabase stop --no-backup
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Require deployment configuration
+        shell: bash
+        run: |
+          missing=()
+          [[ -n "$SUPABASE_ACCESS_TOKEN" ]] || missing+=(SUPABASE_ACCESS_TOKEN)
+          [[ -n "$SUPABASE_DB_PASSWORD" ]] || missing+=(SUPABASE_DB_PASSWORD)
+          [[ -n "$SUPABASE_PROJECT_REF" ]] || missing+=(SUPABASE_PROJECT_REF)
+          if (( ${#missing[@]} )); then printf 'Missing production configuration: %s\n' "${missing[*]}" >&2; exit 1; fi
+      - name: Link to production project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Apply pending migrations using Supabase migration history
+        run: supabase db push --linked
+      - name: Deploy account-actions Edge Function
+        run: supabase functions deploy account-actions --project-ref "$SUPABASE_PROJECT_REF"
+  build:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-34
+            platforms;android-35
+            build-tools;35.0.0
+      - run: npm ci
+      - name: Configure public Supabase runtime settings
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_PUBLIC_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const url = (process.env.SUPABASE_URL || '').trim();
+          const key = (process.env.SUPABASE_PUBLIC_KEY || '').trim();
+          if (!url || !key) { console.error('Missing SUPABASE_URL and/or public SUPABASE_PUBLISHABLE_KEY (or SUPABASE_ANON_KEY).'); process.exit(1); }
+          let parsed; try { parsed = new URL(url); } catch { process.exitCode = 1; console.error('SUPABASE_URL must be HTTPS.'); process.exit(); }
+          if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) { console.error('SUPABASE_URL must be HTTPS.'); process.exit(1); }
+          let valid = /^sb_publishable_[A-Za-z0-9_-]+$/i.test(key);
+          if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(key)) { try { valid ||= JSON.parse(Buffer.from(key.split('.')[1], 'base64url').toString()).role === 'anon'; } catch {} }
+          if (!valid) { console.error('Only a public publishable or anon key is accepted.'); process.exit(1); }
+          fs.writeFileSync('www/env.js', `window.BINCOM_CONFIG = ${JSON.stringify({supabaseUrl:url,supabaseAnonKey:key},null,2)};\n`, {mode:0o600});
+          NODE
+      - run: npm run check
+      - run: npx cordova requirements android
+      - run: npm run build:android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: citizen-reporting-android-debug
+          path: |
+            platforms/android/app/build/outputs/apk/debug/app-debug.apk
+            www/
+            config.xml
+          if-no-files-found: error
+          retention-days: 7
