@@ -5,7 +5,7 @@
   const labels = { waste_sanitation:'Waste & Sanitation', water_supply_leakage:'Water Supply & Leakage', electricity_power:'Electricity & Power', flooding_drainage:'Flooding & Drainage', roads_infrastructure:'Roads & Infrastructure', traffic_transportation:'Traffic & Transportation', accidents_emergencies:'Accidents & Emergencies', crime_public_safety:'Crime & Public Safety', civil_unrest_rioting:'Civil Unrest & Rioting', environmental_hazards:'Environmental Hazards', other:'Other' };
   const statuses = { submitted:'Reported', acknowledged:'Acknowledged', in_progress:'In progress', resolved:'Resolved' };
   let session = null; let activeFilter = 'all'; let incidents = []; let incidentMedia = Object.create(null); let feedRequest = 0; let detailRequest = 0; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
-  let myReports = []; let reportsFilter = 'all'; let reportsRequest = 0; let editingReportId = null;
+  let myReports = []; let myReportsState = 'idle'; let reportsFilter = 'all'; let reportsRequest = 0; let editingReportId = null;
   let authResolved = false; let startupResolved = false; let startupBusy = false; let authSubscription = null; let pendingStartupAuth = null; let authMode = 'signin';
   const authCallbackPromises = new Map();
   let startupAuthCallbackError = '';
@@ -214,7 +214,22 @@
       }
     }
   }
-  function showScreen(name) { screens.forEach((s) => { const on=s.id===`screen-${name}`; s.hidden=!on; s.classList.toggle('is-active',on); }); const screenTitles={feed:'Explore',detail:'Incident details',auth:'Authentication',report:'Report an issue',reports:'My Reports'}; $('#header-screen-title').textContent=screenTitles[name]||'WeSignal'; document.body.classList.toggle('feed-screen-active',name==='feed'); document.body.classList.toggle('report-screen-active',name==='report'); document.body.classList.toggle('reports-screen-active',name==='reports'); document.body.classList.toggle('form-active',name==='report'||name==='auth'); document.body.classList.toggle('auth-screen-active',name==='auth'); document.body.classList.remove('keyboard-open'); document.querySelectorAll('[data-screen]').forEach((n)=>n.classList.toggle('is-selected',n.dataset.screen===name)); if(name==='feed') loadFeed(); if(name==='report') updateGate(); if(name==='reports') loadReports(); window.scrollTo({top:0,behavior:'smooth'}); }
+  function showScreen(name) {
+    screens.forEach((screen) => { const active = screen.id === `screen-${name}`; screen.hidden = !active; screen.classList.toggle('is-active', active); });
+    const screenTitles = { feed: 'Explore', detail: 'Incident details', auth: session ? 'Your account' : 'Authentication', report: 'Report an issue', reports: 'My Reports' };
+    $('#header-screen-title').textContent = screenTitles[name] || 'WeSignal';
+    document.body.classList.toggle('feed-screen-active', name === 'feed');
+    document.body.classList.toggle('report-screen-active', name === 'report');
+    document.body.classList.toggle('reports-screen-active', name === 'reports');
+    document.body.classList.toggle('form-active', name === 'report' || name === 'auth');
+    document.body.classList.toggle('auth-screen-active', name === 'auth');
+    document.body.classList.remove('keyboard-open');
+    document.querySelectorAll('[data-screen]').forEach((node) => node.classList.toggle('is-selected', node.dataset.screen === name));
+    if (name === 'feed') loadFeed();
+    if (name === 'report') updateGate();
+    if (name === 'reports' || (name === 'auth' && session)) loadReports();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
   function state(el,title,body,retry) { el.innerHTML=`<h3>${title}</h3><p>${body}</p>${retry?'<button class="secondary-button retry-button" type="button">Try again</button>':''}`; if(retry) el.querySelector('button').addEventListener('click',retry); }
   function renderFilters() {
     const el = $('#category-filters');
@@ -353,12 +368,47 @@
     node.className = type ? `auth-alert ${type}` : 'auth-alert';
     node.hidden = !text;
   }
+  function renderAccountDashboard() {
+    if (!session || !session.user) return;
+    const user = session.user;
+    const metadata = user.user_metadata || {};
+    const email = String(user.email || '');
+    const displayName = String(metadata.display_name || metadata.full_name || metadata.name || email.split('@')[0] || 'WeSignal member').trim();
+    const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase() || email.charAt(0).toUpperCase() || 'W';
+    $('#account-avatar').textContent = initials;
+    $('#account-display-name').textContent = displayName;
+    $('#account-email').textContent = email || 'Email unavailable';
+    const loaded = myReportsState === 'ready';
+    const active = myReports.filter((item) => item.status !== 'resolved').length;
+    const resolved = myReports.filter((item) => item.status === 'resolved').length;
+    $('#account-stat-total').textContent = loaded ? String(myReports.length) : '—';
+    $('#account-stat-active').textContent = loaded ? String(active) : '—';
+    $('#account-stat-resolved').textContent = loaded ? String(resolved) : '—';
+    $('#account-report-count').textContent = loaded ? String(myReports.length) : '—';
+    const message = $('#account-stats-message');
+    message.className = `account-stats-message${myReportsState === 'error' ? ' is-error' : ''}`;
+    message.textContent = myReportsState === 'loading'
+      ? 'Loading your report activity…'
+      : myReportsState === 'error'
+      ? 'Report activity could not be loaded. Use refresh to try again.'
+      : loaded && myReports.length === 0
+      ? 'Your submitted reports will appear here.'
+      : loaded
+      ? 'Counts are based on reports submitted from this account.'
+      : 'Your report activity will appear here.';
+  }
   function updateSession(next) {
+    const previousUserId = session && session.user && session.user.id;
+    const nextUserId = next && next.user && next.user.id;
+    if (previousUserId !== nextUserId) { reportsRequest += 1; myReports = []; myReportsState = 'idle'; }
     session = next || null;
-    $('#sign-out').hidden = !session;
-    $('#delete-account').hidden = !session;
+    $('#auth-public-content').hidden = !!session;
+    $('#account-dashboard').hidden = !session;
     $('#auth-form').hidden = !!session;
     $('#auth-title').textContent = session ? 'Your account' : 'Welcome to WeSignal';
+    $('#auth-screen-heading').textContent = session ? 'Your account' : 'Authentication';
+    $('#screen-auth').setAttribute('aria-labelledby', session ? 'account-dashboard-title' : 'auth-title');
+    if (session) renderAccountDashboard();
     updateGate();
   }
   function updateGate() { $('#report-gate').hidden = !!session; }
@@ -391,7 +441,7 @@
     }
     setAuthMode(mode || 'signin');
     showScreen('auth');
-    setTimeout(() => $('#auth-email').focus({ preventScroll: true }), 60);
+    if (!session) setTimeout(() => $('#auth-email').focus({ preventScroll: true }), 60);
   }
   function updatePasswordStrength(value) {
     const bar = $('#strength-bar');
@@ -513,7 +563,7 @@
     $('#report-submit-button').innerHTML = '<span aria-hidden="true">✓</span> Save changes';
     $('#title').value = item.title || '';
     $('#description').value = item.description || '';
-    $('#location_label').value = item.location_label || '';
+    $('#location-label').value = item.location_label || '';
     $('#latitude').value = item.latitude ?? '';
     $('#longitude').value = item.longitude ?? '';
     setReportCategory(item.category || '');
@@ -656,6 +706,7 @@
     $('#reports-count-active').textContent = '0';
     $('#reports-count-resolved').textContent = '0';
     if (!session) {
+      myReportsState = 'idle';
       $('#reports-summary').textContent = 'Sign in to view your reports';
       showReportsState('Your reports are private', 'Sign in to view reports submitted from your account. Reports are not available in guest mode.', [
         { label: 'Sign in', auth: 'signin', className: 'primary-button' },
@@ -664,21 +715,29 @@
       return;
     }
     if (!window.BincomData.isConfigured()) {
+      myReportsState = 'error';
+      renderAccountDashboard();
       $('#reports-summary').textContent = 'Private reports are unavailable';
       showReportsState('Reports are not connected', window.BincomData.configurationMessage(), [], 'error');
       return;
     }
+    myReportsState = 'loading';
+    renderAccountDashboard();
     $('#reports-summary').textContent = 'Loading your reports…';
     showReportsState('Loading your reports', 'Fetching reports submitted from your account.', [], 'loading');
     try {
       const result = await window.BincomData.listReports();
       if (requestId !== reportsRequest) return;
       if (result.error) {
+        myReportsState = 'error';
+        renderAccountDashboard();
         $('#reports-summary').textContent = 'Reports could not be refreshed';
         showReportsState('We could not load your reports', 'Check your connection and try again.', [{ label: 'Try again', action: 'retry', className: 'secondary-button' }], 'error');
         return;
       }
       myReports = Array.isArray(result.data) ? result.data : [];
+      myReportsState = 'ready';
+      renderAccountDashboard();
       if (!myReports.length) {
         $('#reports-summary').textContent = '0 reports on this account';
         showReportsState('No reports yet', 'Reports you submit from this account will appear here.', [{ label: 'Report an incident', action: 'create', className: 'primary-button' }]);
@@ -688,6 +747,8 @@
       renderMyReports();
     } catch (_) {
       if (requestId !== reportsRequest) return;
+      myReportsState = 'error';
+      renderAccountDashboard();
       $('#reports-summary').textContent = 'Reports could not be refreshed';
       showReportsState('We could not load your reports', 'Check your connection and try again.', [{ label: 'Try again', action: 'retry', className: 'secondary-button' }], 'error');
     }
@@ -706,6 +767,10 @@
   document.addEventListener('focusout',(e)=>{if(e.target.matches('input,textarea'))setTimeout(()=>{if(!document.activeElement.matches('input:not([type="hidden"]),textarea'))document.body.classList.remove('keyboard-open');},100);});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{if(window.visualViewport.height<window.innerHeight-140)document.body.classList.add('keyboard-open');else document.body.classList.remove('keyboard-open');});
   $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>{resetReportEditor();showScreen('feed');});$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#reports-state-actions').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.reportsAuth)openAuth('reports',button.dataset.reportsAuth);else if(button.dataset.reportsAction==='retry')loadReports();else if(button.dataset.reportsAction==='create')showScreen('report');});document.querySelector('#reports-list').addEventListener('click',(event)=>{const edit=event.target.closest('[data-report-edit]');if(edit){beginEditReport(edit.dataset.reportEdit);return;}const remove=event.target.closest('[data-report-delete]');if(remove)deleteOwnReport(remove.dataset.reportDelete);});document.querySelectorAll('[data-reports-filter]').forEach((button)=>button.addEventListener('click',()=>{reportsFilter=button.dataset.reportsFilter;renderMyReports();}));$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#delete-account').addEventListener('click', deleteAccount);$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);document.addEventListener('reportmediachange',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device. You can enter a landmark instead.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{const point=coordinates(p.coords.latitude,p.coords.longitude);if(!point){$('#location-status').textContent='The device returned invalid coordinates. You can enter a landmark instead.';return;}$('#latitude').value=point.latitude;$('#longitude').value=point.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';updateLocationMapLink();markReportDraft();},(error)=>{const messages={1:'Location permission was denied. Enable location access in device settings or enter a landmark instead.',2:'The device could not determine your location. Check GPS availability or enter a landmark instead.',3:'Location lookup timed out. Try again or enter a landmark instead.'};$('#location-status').textContent=messages[error&&error.code]||'Location could not be determined. You can enter a landmark instead.';}, {enableHighAccuracy:false,maximumAge:30000,timeout:15000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-map-button-text').textContent='Choose location on map';$('#location-status').textContent='Selected coordinates removed from this report.';markReportDraft();});
+  $('#account-refresh-reports').addEventListener('click', loadReports);
+  $('#account-my-reports').addEventListener('click', () => showScreen('reports'));
+  $('#account-new-report').addEventListener('click', () => showScreen('report'));
+  $('#account-explore').addEventListener('click', () => showScreen('feed'));
   $('#detail-content').addEventListener('click', (event) => { const button = event.target.closest('[data-confirm-report]'); if (button) submitResolutionConfirmation(button.dataset.confirmReport, button); });
   $('#startup-retry').addEventListener('click', initializeStartup);
   $('#startup-guest').addEventListener('click', () => showApplication('feed'));

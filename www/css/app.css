@@ -534,3 +534,47 @@ body.map-modal-open { overflow: hidden; }
 .account-report-actions { display: flex; gap: 8px; margin-top: 12px; }
 .report-card-action { min-height: 34px; flex: 1; padding: 7px 10px; font-size: 10px; }
 .account-report-actions .danger-button { width: auto; margin-top: 0; }
+
+/* Signed-in profile dashboard (real account identity and report counts only). */
+.account-dashboard { width: 100%; max-width: 520px; margin: 0 auto; padding: 11px 0 28px; color: #1C1B1B; }
+.account-dashboard-heading { margin: 4px 0 16px; }
+.account-dashboard-heading .auth-eyebrow { margin-bottom: 8px; }
+.account-dashboard-heading h1 { margin: 0; font: 700 clamp(27px, 7vw, 34px)/1.12 "Hanken Grotesk", sans-serif; letter-spacing: -.035em; }
+.account-dashboard-heading > p:last-child { margin: 7px 0 0; color: #5B606A; font: 400 12px/1.45 "Public Sans", sans-serif; }
+.account-profile-card { padding: 15px; border: 1px solid rgb(28 27 27 / 5%); border-radius: 15px; background: #FFFFFF; box-shadow: 0 3px 12px rgb(0 0 0 / 4%); }
+.account-profile-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.account-profile-avatar { width: 58px; height: 58px; display: grid; flex: 0 0 auto; place-items: center; border: 3px solid #FFFFFF; border-radius: 50%; color: #FFFFFF; background: #003D8E; box-shadow: 0 0 0 1px #D9E2FF; font: 700 20px/1 "Hanken Grotesk", sans-serif; }
+.account-profile-name { min-width: 0; }
+.account-profile-name h2 { margin: 0; overflow-wrap: anywhere; color: #1C1B1B; font: 600 17px/1.2 "Hanken Grotesk", sans-serif; }
+.account-profile-name > p { margin: 4px 0 6px; overflow-wrap: anywhere; color: #737784; font: 400 11px/1.35 "Public Sans", sans-serif; }
+.account-connected-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; color: #004398; background: #EAF0FF; font: 600 9px/1.2 "Hanken Grotesk", sans-serif; }
+.account-connected-badge > span { width: 6px; height: 6px; border-radius: 50%; background: #246FE7; }
+.account-profile-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 15px; }
+.account-profile-stats > div { min-width: 0; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 7px 4px; border-radius: 10px; background: #F6F3F2; text-align: center; }
+.account-profile-stats strong { color: #1C1B1B; font: 600 19px/1 "Hanken Grotesk", sans-serif; }
+.account-profile-stats span { color: #737784; font: 500 8px/1.2 "Public Sans", sans-serif; }
+.account-stats-message { margin: 10px 1px 0; color: #737784; font: 400 9px/1.4 "Public Sans", sans-serif; }
+.account-stats-message.is-error { color: #93000A; }
+.account-dashboard-group { margin-top: 19px; }
+.account-dashboard-group > h2 { margin: 0 0 7px; padding: 0 3px; color: #737784; font: 600 10px/1.3 "Hanken Grotesk", sans-serif; letter-spacing: .09em; text-transform: uppercase; }
+.account-dashboard-list { overflow: hidden; border: 1px solid rgb(28 27 27 / 5%); border-radius: 13px; background: #FFFFFF; box-shadow: 0 2px 8px rgb(0 0 0 / 3%); }
+.account-dashboard-list button { width: 100%; min-height: 61px; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 0; color: #1C1B1B; background: #FFFFFF; text-align: left; }
+.account-dashboard-list button + button { border-top: 1px solid #F0EDEC; }
+.account-dashboard-list button:hover { background: #F6F8FE; }
+.account-dashboard-list button:active { background: #EAF0FF; }
+.account-dashboard-list button:focus-visible, .account-dashboard-controls button:focus-visible { outline: 2px solid #246FE7; outline-offset: -2px; }
+.account-action-icon { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 9px; color: #003D8E; background: #F0EDEC; font: 600 17px/1 "Public Sans", sans-serif; }
+.account-action-copy { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 3px; }
+.account-action-copy strong { overflow: hidden; font: 600 11px/1.25 "Hanken Grotesk", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.account-action-copy small { overflow: hidden; color: #737784; font: 400 9px/1.3 "Public Sans", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
+.account-action-count { min-width: 21px; height: 21px; display: grid; flex: 0 0 auto; place-items: center; padding: 0 5px; border-radius: 999px; color: #FFFFFF; background: #246FE7; font: 600 9px/1 "Public Sans", sans-serif; }
+.account-action-chevron { flex: 0 0 auto; color: #737784; font: 400 20px/1 "Public Sans", sans-serif; }
+.account-privacy-card { padding: 13px; border: 1px solid #DDE6F8; border-radius: 12px; background: #F1F5FF; }
+.account-privacy-card strong { color: #003D8E; font: 600 11px/1.3 "Hanken Grotesk", sans-serif; }
+.account-privacy-card p { margin: 5px 0 0; color: #424753; font: 400 10px/1.5 "Public Sans", sans-serif; }
+.account-dashboard-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 18px; }
+.account-dashboard-controls .sign-out, .account-dashboard-controls .danger-button { width: 100%; min-height: 44px; margin: 0; padding: 9px 11px; border-radius: 10px; font: 600 11px/1.2 "Hanken Grotesk", sans-serif; }
+@media (max-width: 360px) { .account-profile-card { padding: 12px; } .account-dashboard-list button { gap: 8px; padding-right: 9px; padding-left: 9px; } .account-action-copy small { font-size: 8px; } }
+.account-refresh-button { display: block; min-height: 34px; margin: 8px auto 0; padding: 5px 10px; border: 1px solid #E5E2E1; border-radius: 999px; color: #003D8E; background: #FFFFFF; font: 600 9px/1.2 "Hanken Grotesk", sans-serif; }
+.account-refresh-button:hover { background: #F6F8FE; }
+.account-refresh-button:focus-visible { outline: 2px solid #246FE7; outline-offset: 2px; }

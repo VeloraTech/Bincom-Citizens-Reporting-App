@@ -122,11 +122,12 @@
           <div class="auth-topbar-brand">
             <button id="auth-back" class="auth-back" type="button" aria-label="Go back">←</button>
             <img src="images/wesignal-icon.png" alt="">
-            <h2>Authentication</h2>
+            <h2 id="auth-screen-heading">Authentication</h2>
           </div>
           <span class="auth-avatar" aria-hidden="true">●</span>
         </header>
         <div class="auth-content">
+          <div id="auth-public-content">
           <div class="auth-quick-row">
             <div class="auth-wordmark"><img src="images/wesignal-icon.png" alt=""><span>WeSignal</span></div>
             <button id="auth-guest-top" class="auth-guest-compact" type="button">Continue as Guest <span aria-hidden="true">→</span></button>
@@ -167,8 +168,30 @@
             <div class="auth-trust-card"><span class="auth-trust-icon" aria-hidden="true">◎</span><span><strong>Guest browsing</strong><small>Explore public incidents without an account.</small></span></div>
           </div>
           <p class="auth-legal">Sign in or create an account to submit a report. You can browse public reports as a guest.</p>
-          <button id="sign-out" class="secondary-button sign-out" type="button" hidden>Sign out</button>
-          <button id="delete-account" class="danger-button" type="button" hidden>Delete account</button>
+          </div>
+          <section id="account-dashboard" class="account-dashboard" aria-labelledby="account-dashboard-title" hidden>
+            <header class="account-dashboard-heading"><p class="auth-eyebrow"><span aria-hidden="true"></span>Account activity</p><h1 id="account-dashboard-title">Your civic profile</h1><p>Manage your reports and account from one place.</p></header>
+            <section class="account-profile-card" aria-label="Your account profile">
+              <div class="account-profile-identity"><div id="account-avatar" class="account-profile-avatar" aria-hidden="true">W</div><div class="account-profile-name"><h2 id="account-display-name">WeSignal member</h2><p id="account-email"></p><span class="account-connected-badge"><span aria-hidden="true"></span>Connected account</span></div></div>
+              <div class="account-profile-stats" aria-label="Report activity">
+                <div><strong id="account-stat-total">—</strong><span>Reports submitted</span></div>
+                <div><strong id="account-stat-active">—</strong><span>Active reports</span></div>
+                <div><strong id="account-stat-resolved">—</strong><span>Resolved cases</span></div>
+              </div>
+              <button id="account-refresh-reports" class="account-refresh-button" type="button">↻ &nbsp;Refresh report activity</button>
+              <p id="account-stats-message" class="account-stats-message" role="status" aria-live="polite">Sign in to view your activity.</p>
+            </section>
+            <section class="account-dashboard-group" aria-labelledby="account-activity-title"><h2 id="account-activity-title">Civic activity</h2><div class="account-dashboard-list">
+              <button id="account-my-reports" type="button"><span class="account-action-icon" aria-hidden="true">▤</span><span class="account-action-copy"><strong>My submitted reports</strong><small>View and manage your reports</small></span><span id="account-report-count" class="account-action-count">—</span><span class="account-action-chevron" aria-hidden="true">›</span></button>
+              <button id="account-new-report" type="button"><span class="account-action-icon" aria-hidden="true">＋</span><span class="account-action-copy"><strong>Submit an incident</strong><small>Share an issue with your community</small></span><span class="account-action-chevron" aria-hidden="true">›</span></button>
+              <button id="account-explore" type="button"><span class="account-action-icon" aria-hidden="true">⌕</span><span class="account-action-copy"><strong>Explore incidents</strong><small>Browse published community reports</small></span><span class="account-action-chevron" aria-hidden="true">›</span></button>
+            </div></section>
+            <section class="account-dashboard-group" aria-labelledby="account-privacy-title"><h2 id="account-privacy-title">Account &amp; privacy</h2><div class="account-privacy-card"><strong>Your reports stay connected to your account</strong><p>Only you can edit or delete reports submitted from this account. Published reports and any location details you provide are visible in Explore.</p></div></section>
+            <section class="account-dashboard-controls" aria-label="Account controls">
+              <button id="sign-out" class="secondary-button sign-out" type="button">Sign out</button>
+              <button id="delete-account" class="danger-button" type="button">Delete account</button>
+            </section>
+          </section>
         </div>
       </section>
 
