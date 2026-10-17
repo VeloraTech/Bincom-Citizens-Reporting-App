@@ -55,6 +55,13 @@ begin
   select count(*) into v_existing from public.report_media where report_id = p_report_id;
   if v_existing + pg_catalog.jsonb_array_length(p_media) > 3 then raise exception using errcode = '22023', message = 'A report may contain no more than three attachments.'; end if;
   for v_item in select value from pg_catalog.jsonb_array_elements(p_media) loop
+    if (v_item ->> 'bucket_id') <> 'wesignal-report-media'
+       or pg_catalog.split_part(v_item ->> 'object_path', '/', 1) <> v_user_id::text
+       or pg_catalog.split_part(v_item ->> 'object_path', '/', 2) <> p_report_id::text
+       or pg_catalog.array_length(pg_catalog.string_to_array(v_item ->> 'object_path', '/'), 1) <> 3
+       or not exists (select 1 from storage.objects o where o.bucket_id = 'wesignal-report-media' and o.name = v_item ->> 'object_path') then
+      raise exception using errcode = '42501', message = 'A media object is not owned by this report or is not stored.';
+    end if;
     insert into public.report_media (report_id, bucket_id, object_path, media_type, mime_type, size_bytes, sort_order)
     values (p_report_id, v_item ->> 'bucket_id', v_item ->> 'object_path', v_item ->> 'media_type', v_item ->> 'mime_type', (v_item ->> 'size_bytes')::bigint, v_existing + v_count);
     v_count := v_count + 1;

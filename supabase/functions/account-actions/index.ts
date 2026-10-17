@@ -46,6 +46,8 @@ Deno.serve(async (req) => {
         const { error } = await service.storage.from('wesignal-report-media').remove(paths)
         if (error) return json({ error: `Account was not deleted because media cleanup failed: ${error.message}` }, 500)
       }
+      const { error: reportsDeleteError } = await service.from('reports').delete().eq('reporter_id', auth.user.id)
+      if (reportsDeleteError) return json({ error: `Account was not deleted because report cleanup failed: ${reportsDeleteError.message}` }, 500)
     }
     const { error } = await service.auth.admin.deleteUser(auth.user.id)
     if (error) return json({ error: error.message }, 500)

@@ -528,3 +528,9 @@ body.map-modal-open { overflow: hidden; }
   .map-dialog-actions button { flex: 1 1 auto; }
   .map-dialog-actions #map-use-gps { margin-right: 0; }
 }
+
+.danger-button { width: 100%; min-height: 42px; margin-top: 10px; padding: 9px 12px; border: 1px solid #F1B7B7; border-radius: 8px; color: #8D252D; background: #FFF4F3; font: 600 12px/1.2 "Hanken Grotesk", sans-serif; }
+.danger-button:disabled { opacity: .65; }
+.account-report-actions { display: flex; gap: 8px; margin-top: 12px; }
+.report-card-action { min-height: 34px; flex: 1; padding: 7px 10px; font-size: 10px; }
+.account-report-actions .danger-button { width: auto; margin-top: 0; }

@@ -64,15 +64,20 @@
     const name = String(preferredName || file && file.name || 'attachment').slice(0, 180);
     const mimeType = resolveMime(file, name);
     if (!mimeType) throw new Error('The file type is not supported. Choose a JPG, PNG, WebP, GIF, HEIC, MP4, WebM, MOV, 3GP, or M4V file.');
-    const size = Number(file && file.size);
-    if (!Number.isFinite(size) || size < 1) throw new Error('Android returned an empty file or a URI without readable file data.');
-    if (size > MAX_FILE_BYTES) throw new Error('Files must be 25 MiB or smaller.');
+    let reportedSize = Number(file && file.size);
+    if (Number.isFinite(reportedSize) && reportedSize > MAX_FILE_BYTES) throw new Error('Files must be 25 MiB or smaller.');
 
+    // Android content providers can expose a valid URI while returning a zero/unknown
+    // size from the Cordova File wrapper. Read the granted file bytes first and use the
+    // resulting Blob as the upload source; never upload the URI or a guessed filename.
     let blob = null;
     try {
-      if (file && typeof file.slice === 'function') blob = file.slice(0, size, mimeType);
+      if (file && typeof file.slice === 'function' && Number.isFinite(reportedSize) && reportedSize > 0) blob = file.slice(0, reportedSize, mimeType);
     } catch (_) { /* Some Cordova File wrappers do not implement Blob.slice correctly. */ }
-    if (!blob || Number(blob.size) !== size) blob = await readFileAsBlob(file, mimeType);
+    if (!blob || Number(blob.size) !== reportedSize) blob = await readFileAsBlob(file, mimeType);
+    const size = Number(blob && blob.size);
+    if (!Number.isFinite(size) || size < 1) throw new Error('Android returned an empty file or a URI without readable file data.');
+    if (size > MAX_FILE_BYTES) throw new Error('Files must be 25 MiB or smaller.');
     if (!blob || Number(blob.size) !== size) throw new Error('The selected file could not be converted into uploadable data.');
 
     let uploadFile = blob;
