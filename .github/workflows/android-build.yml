@@ -41,6 +41,72 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Configure public Supabase runtime settings
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_PUBLIC_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_PUBLISHABLE_KEY || vars.SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
+          const publicKey = (process.env.SUPABASE_PUBLIC_KEY || '').trim();
+          const missing = [];
+          if (!supabaseUrl) missing.push('SUPABASE_URL');
+          if (!publicKey) missing.push('SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY');
+          if (missing.length) {
+            console.error(`Missing required GitHub Actions configuration: ${missing.join(' and ')}. Set these repository Variables or Secrets before building.`);
+            process.exit(1);
+          }
+
+          let parsedUrl;
+          try {
+            parsedUrl = new URL(supabaseUrl);
+          } catch {
+            console.error('SUPABASE_URL must be a valid HTTPS URL.');
+            process.exit(1);
+          }
+          if (parsedUrl.protocol !== 'https:' || !parsedUrl.hostname || parsedUrl.username || parsedUrl.password || parsedUrl.search || parsedUrl.hash) {
+            console.error('SUPABASE_URL must be a valid HTTPS URL.');
+            process.exit(1);
+          }
+
+          if (/^sb_secret_/i.test(publicKey)) {
+            console.error('A Supabase secret key is not allowed. Configure only the public publishable or anon key.');
+            process.exit(1);
+          }
+          const isPublishableKey = /^sb_publishable_[A-Za-z0-9_-]+$/i.test(publicKey);
+          const isJwt = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(publicKey);
+          let isAnonJwt = false;
+          if (isJwt) {
+            try {
+              const claims = JSON.parse(Buffer.from(publicKey.split('.')[1], 'base64url').toString('utf8'));
+              if (claims.role !== 'anon') {
+                console.error('The configured Supabase JWT is not a public anon key. Configure only a public anon or publishable key.');
+                process.exit(1);
+              }
+              isAnonJwt = true;
+            } catch {
+              console.error('The configured JWT key could not be validated; use a public anon or publishable key.');
+              process.exit(1);
+            }
+          }
+          if (!isPublishableKey && !isAnonJwt) {
+            console.error('The configured key format is not a recognized Supabase public publishable or anon key.');
+            process.exit(1);
+          }
+
+          const output = `window.BINCOM_CONFIG = ${JSON.stringify({
+            supabaseUrl,
+            supabaseAnonKey: publicKey
+          }, null, 2)};\n`;
+          const outputPath = path.join('www', 'env.js');
+          fs.writeFileSync(outputPath, output, { mode: 0o600 });
+          fs.chmodSync(outputPath, 0o600);
+          console.log('Generated ignored www/env.js with validated public Supabase configuration. Values are not logged.');
+          NODE
+
       - name: Run source checks
         run: npm run check
 

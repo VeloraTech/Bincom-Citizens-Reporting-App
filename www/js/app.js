@@ -2,31 +2,545 @@
   'use strict';
   const $ = (s) => document.querySelector(s);
   const screens = [...document.querySelectorAll('.screen')];
-  const labels = { roads:'Roads & walkways', waste:'Waste & sanitation', water:'Water', power:'Power & lighting', safety:'Safety', other:'Other' };
+  const labels = { waste_sanitation:'Waste & Sanitation', water_supply_leakage:'Water Supply & Leakage', electricity_power:'Electricity & Power', flooding_drainage:'Flooding & Drainage', roads_infrastructure:'Roads & Infrastructure', traffic_transportation:'Traffic & Transportation', accidents_emergencies:'Accidents & Emergencies', crime_public_safety:'Crime & Public Safety', civil_unrest_rioting:'Civil Unrest & Rioting', environmental_hazards:'Environmental Hazards', other:'Other' };
   const statuses = { submitted:'Submitted', acknowledged:'Acknowledged', in_progress:'In progress', resolved:'Resolved' };
-  let session = null; let activeFilter = 'all'; let incidents = []; let returnScreen = 'report'; let authBusy = false;
+  let session = null; let activeFilter = 'all'; let incidents = []; let incidentMedia = Object.create(null); let feedRequest = 0; let detailRequest = 0; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
+  let myReports = []; let reportsFilter = 'all'; let reportsRequest = 0;
+  let authResolved = false; let startupResolved = false; let startupBusy = false; let authSubscription = null; let pendingStartupAuth = null; let authMode = 'signin';
   const escapeHtml = (v) => String(v || '').replace(/[&<>'"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const date = (v) => v ? new Date(v).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'Date unavailable';
-  const onboardingDone = () => { try { return localStorage.getItem('bincom.onboarding.complete') === 'true'; } catch (_) { return false; } };
-  const completeOnboarding = () => { try { localStorage.setItem('bincom.onboarding.complete','true'); } catch (_) {} $('#screen-onboarding').hidden=true; $('#app-shell').hidden=false; showScreen('feed'); loadFeed(); };
-  function showScreen(name) { screens.forEach((s) => { const on=s.id===`screen-${name}`; s.hidden=!on; s.classList.toggle('is-active',on); }); document.body.classList.toggle('form-active',name==='report'||name==='auth'); document.body.classList.remove('keyboard-open'); document.querySelectorAll('[data-screen]').forEach((n)=>n.classList.toggle('is-selected',n.dataset.screen===name)); if(name==='report') updateGate(); if(name==='reports') loadReports(); window.scrollTo({top:0,behavior:'smooth'}); }
+  const relativeDate = (v) => { const time = Date.parse(v); if (!Number.isFinite(time)) return 'Date unavailable'; const mins = Math.max(0, Math.floor((Date.now() - time) / 60000)); if (mins < 1) return 'Just now'; if (mins < 60) return `${mins}m ago`; const hours = Math.floor(mins / 60); if (hours < 24) return `${hours}h ago`; const days = Math.floor(hours / 24); return days < 7 ? `${days}d ago` : date(v); };
+  function renderMediaMarkup(media, context) {
+    const items = (Array.isArray(media) ? media : []).filter((item) => item && item.signed_url);
+    if (!items.length) return '';
+    const visible = context === 'feed' ? items.slice(0, 1) : items;
+    return `<div class="incident-media incident-media-${context}" aria-label="Incident attachments">${visible.map((item, index) => {
+      const src = escapeHtml(item.signed_url);
+      if (item.media_type === 'video') return `<div class="incident-media-item"><video controls playsinline preload="metadata" src="${src}" aria-label="Incident video ${index + 1}"></video></div>`;
+      return `<div class="incident-media-item"><img src="${src}" alt="Photo attached to incident report ${index + 1}" loading="lazy"></div>`;
+    }).join('')}</div>`;
+  }
+  function handleIncidentMediaError(event) {
+    const element = event.target;
+    if (!element || typeof element.matches !== 'function' || !element.matches('.incident-media img, .incident-media video')) return;
+    const wrapper = element.closest('.incident-media-item');
+    if (!wrapper || wrapper.querySelector('.incident-media-unavailable')) return;
+    const notice = document.createElement('p');
+    notice.className = 'incident-media-unavailable';
+    notice.setAttribute('role', 'status');
+    notice.textContent = 'This attachment could not be loaded or played on this device.';
+    wrapper.replaceChildren(notice);
+  }
+  function setStartupProgress(value, text) {
+    const bar = $('#initProgressBar');
+    const label = $('#initStatusText');
+    if (bar) { bar.setAttribute('aria-valuenow', String(value)); bar.firstElementChild.style.width = `${value}%`; }
+    if (label) label.textContent = text;
+  }
+  function showWelcome() {
+    $('#startup-splash').hidden = true;
+    $('#app-shell').hidden = true;
+    $('#screen-onboarding').hidden = false;
+  }
+  function showApplication(name) {
+    $('#startup-splash').hidden = true;
+    $('#screen-onboarding').hidden = true;
+    $('#app-shell').hidden = false;
+    showScreen(name || 'feed');
+    if ((name || 'feed') === 'feed') loadFeed();
+  }
+  function showStartupFailure(message) {
+    $('#startup-error-message').textContent = message;
+    $('#startup-error').hidden = false;
+    $('#startup-guest').hidden = false;
+    setStartupProgress(100, 'Could not check sign-in status');
+  }
+  function isInvalidSessionError(error) {
+    const status = Number(error && error.status);
+    const detail = `${error && error.name || ''} ${error && error.code || ''} ${error && error.message || ''}`.toLowerCase();
+    return status === 401 || status === 403 || /invalid[_ -]?(jwt|token|grant)|jwt[_ -]?expired|refresh token.*not found|session.*missing/.test(detail);
+  }
+  function completeOnboarding() { showApplication('feed'); }
+  function handleAuthStateChange(event, nextSession) {
+    if (event === 'INITIAL_SESSION') return;
+    if (!startupResolved) { pendingStartupAuth = { event, session: nextSession || null }; return; }
+    if (event === 'SIGNED_OUT') {
+      authResolved = true;
+      updateSession(null);
+      showWelcome();
+      return;
+    }
+    if (nextSession) {
+      authResolved = true;
+      updateSession(nextSession);
+      if ($('#app-shell').hidden) setTimeout(() => showApplication('feed'), 0);
+    }
+  }
+  async function initializeStartup() {
+    if (startupBusy) return;
+    startupBusy = true;
+    $('#startup-error').hidden = true;
+    setStartupProgress(16, 'Starting WeSignal');
+    try {
+      if (!authSubscription) {
+        const listener = window.BincomData.onAuthStateChange(handleAuthStateChange);
+        authSubscription = listener && listener.data && listener.data.subscription;
+      }
+      if (!window.BincomData.isConfigured()) throw new Error(window.BincomData.configurationMessage());
+      setStartupProgress(42, 'Restoring sign-in state');
+      const restored = await window.BincomData.getSession();
+      if (restored.error) throw restored.error;
+      let current = restored.data && restored.data.session || null;
+      if (!current && pendingStartupAuth && pendingStartupAuth.session && pendingStartupAuth.event === 'SIGNED_IN') current = pendingStartupAuth.session;
+      if (pendingStartupAuth && pendingStartupAuth.event === 'SIGNED_OUT') current = null;
+      if (current) {
+        setStartupProgress(68, 'Verifying your account');
+        const verified = await window.BincomData.getUser();
+        if (verified.error) {
+          if (!isInvalidSessionError(verified.error)) throw verified.error;
+          await window.BincomData.clearLocalSession();
+          current = null;
+        } else if (!verified.data || !verified.data.user) {
+          await window.BincomData.clearLocalSession();
+          current = null;
+        } else current = { ...current, user: verified.data.user };
+      }
+      if (pendingStartupAuth && pendingStartupAuth.event === 'SIGNED_OUT') current = null;
+      pendingStartupAuth = null;
+      authResolved = true;
+      startupResolved = true;
+      updateSession(current);
+      setStartupProgress(92, current ? 'Opening Explore' : 'Preparing welcome');
+      if (current) showApplication('feed');
+      else showWelcome();
+    } catch (error) {
+      // Keep any persisted session intact; a network or initialization failure is not proof of sign-out.
+      authResolved = false;
+      startupResolved = false;
+      updateSession(null);
+      const message = error && error.message && /not configured|could not be initialized/i.test(error.message)
+        ? error.message
+        : 'We couldn’t verify your sign-in. Check your connection and try again. Your saved session has not been cleared.';
+      showStartupFailure(message);
+    } finally { startupBusy = false; }
+  }
+  function showScreen(name) { screens.forEach((s) => { const on=s.id===`screen-${name}`; s.hidden=!on; s.classList.toggle('is-active',on); }); const screenTitles={feed:'Explore',detail:'Incident details',auth:'Authentication',report:'Report an issue',reports:'My Reports'}; $('#header-screen-title').textContent=screenTitles[name]||'WeSignal'; document.body.classList.toggle('feed-screen-active',name==='feed'); document.body.classList.toggle('report-screen-active',name==='report'); document.body.classList.toggle('reports-screen-active',name==='reports'); document.body.classList.toggle('form-active',name==='report'||name==='auth'); document.body.classList.toggle('auth-screen-active',name==='auth'); document.body.classList.remove('keyboard-open'); document.querySelectorAll('[data-screen]').forEach((n)=>n.classList.toggle('is-selected',n.dataset.screen===name)); if(name==='report') updateGate(); if(name==='reports') loadReports(); window.scrollTo({top:0,behavior:'smooth'}); }
   function state(el,title,body,retry) { el.innerHTML=`<h3>${title}</h3><p>${body}</p>${retry?'<button class="secondary-button retry-button" type="button">Try again</button>':''}`; if(retry) el.querySelector('button').addEventListener('click',retry); }
-  function renderFilters() { const el=$('#category-filters'); el.innerHTML=['all',...Object.keys(labels)].map((k)=>`<button class="filter-chip${activeFilter===k?' active':''}" type="button" data-filter="${k}" aria-pressed="${activeFilter===k}">${k==='all'?'All incidents':labels[k]}</button>`).join(''); el.querySelectorAll('[data-filter]').forEach((b)=>b.addEventListener('click',()=>{activeFilter=b.dataset.filter;$('#reset-filter').hidden=activeFilter==='all';renderFilters();renderIncidents();})); }
-  function renderIncidents() { const list=$('#incident-list'); const rows=activeFilter==='all'?incidents:incidents.filter((i)=>i.category===activeFilter); list.innerHTML=rows.map((i)=>`<li class="incident-card"><button type="button" data-incident="${escapeHtml(i.id)}"><div class="incident-top"><span class="chip">${escapeHtml(labels[i.category]||i.category)}</span><span class="chip status-chip">${escapeHtml(statuses[i.status]||i.status||'Published')}</span></div><h3>${escapeHtml(i.title)}</h3><p class="incident-excerpt">${escapeHtml((i.description||'').slice(0,150))}${(i.description||'').length>150?'…':''}</p><div class="incident-meta"><span>${date(i.created_at)}</span>${i.location_label?`<span>· ${escapeHtml(i.location_label)}</span>`:''}<span class="arrow">→</span></div></button></li>`).join(''); list.querySelectorAll('[data-incident]').forEach((b)=>b.addEventListener('click',()=>openDetail(b.dataset.incident))); const st=$('#feed-state'); if(!rows.length) { st.hidden=false; state(st,'No incidents in this category','Try another category or reset the filter to see all published incidents.'); } else st.hidden=true; }
-  async function loadFeed() { const st=$('#feed-state'); st.hidden=false; st.innerHTML='<div class="skeleton" aria-label="Loading incidents"></div>'; $('#incident-list').innerHTML=''; if(!window.BincomData.isConfigured()) { state(st,'Public feed is not connected',window.BincomData.configurationMessage()); return; } const r=await window.BincomData.listPublicReports(); if(r.error) { state(st,'We could not load incidents','Check your connection and try again. Published incidents have not been replaced with sample content.',loadFeed); return; } incidents=r.data||[]; renderIncidents(); }
-  async function openDetail(id) { showScreen('detail'); const target=$('#detail-content'); target.innerHTML='<div class="state-card"><div class="skeleton"></div></div>'; const fallback=incidents.find((i)=>i.id===id); if(!fallback){state(target,'Incident unavailable','This published incident could not be found. Return to the feed and try again.');return;} const r=await window.BincomData.getPublicReport(id); const i=r.data||fallback; if(r.error&&!i){state(target,'Incident unavailable','This incident may no longer be published. Return to the feed and try again.');return;} target.innerHTML=`<article><div class="detail-hero"><span class="chip">${escapeHtml(labels[i.category]||i.category)}</span><h2 id="detail-title">${escapeHtml(i.title)}</h2><span class="detail-date">${date(i.created_at)}</span></div><div class="detail-body"><h3>Status</h3><p><span class="chip status-chip">${escapeHtml(statuses[i.status]||i.status||'Published')}</span></p><h3>What was reported</h3><p>${escapeHtml(i.description)}</p>${i.location_label?`<h3>Location</h3><p>${escapeHtml(i.location_label)}</p>`:''}</div></article>`; }
-  function authMessage(text,type){const n=$('#auth-message');n.textContent=text;n.className=type?`form-message ${type}`:'form-message';}
-  function updateSession(next){session=next||null;$('#sign-out').hidden=!session;$('#auth-form').hidden=!!session;$('#auth-title').textContent=session?'Your account':'Sign in to report';updateGate();}
-  function updateGate(){ $('#report-gate').hidden=!!session; }
-  function openAuth(from){returnScreen=from||'report';showScreen('auth');}
-  async function authenticate(action){if(authBusy)return;const d=Object.fromEntries(new FormData($('#auth-form')).entries());if(!d.email||!d.email.includes('@')||!d.password||d.password.length<6){authMessage('Enter a valid email and a password with at least 6 characters.','error');return;}authBusy=true;const bs=[...$('#auth-form').querySelectorAll('button')];bs.forEach((b)=>{b.disabled=true;b.dataset.label=b.textContent;b.textContent='Working…';});const r=action==='signup'?await window.BincomData.signUp(d.email.trim(),d.password):await window.BincomData.signIn(d.email.trim(),d.password);bs.forEach((b)=>{b.disabled=false;b.textContent=b.dataset.label;});authBusy=false;if(r.error){authMessage(r.error.message||'Authentication failed. Try again.','error');return;}if(action==='signup'&&!r.data.session){authMessage('Account created. Check your email to confirm it, then sign in.','success');return;}updateSession(r.data.session);authMessage('You are signed in.','success');showScreen(returnScreen);}
+  function renderFilters() {
+    const el = $('#category-filters');
+    const filters = ['all', ...Object.keys(labels)];
+    el.innerHTML = filters.map((key) => {
+      const count = key === 'all' ? incidents.length : incidents.filter((item) => item.category === key).length;
+      const label = key === 'all' ? 'All' : labels[key];
+      return `<button class="filter-chip${activeFilter === key ? ' active' : ''}" type="button" data-filter="${key}" aria-pressed="${activeFilter === key}"><span>${label}</span><span class="feed-filter-count">${count}</span></button>`;
+    }).join('');
+    el.querySelectorAll('[data-filter]').forEach((button) => button.addEventListener('click', () => {
+      activeFilter = button.dataset.filter;
+      $('#reset-filter').hidden = activeFilter === 'all' && !searchQuery;
+      renderFilters();
+      renderIncidents();
+    }));
+  }
+  function renderIncidents() {
+    const list = $('#incident-list');
+    const query = searchQuery;
+    const rows = incidents.filter((item) => {
+      const inCategory = activeFilter === 'all' || item.category === activeFilter;
+      const haystack = [item.title, item.description, item.location_label, labels[item.category] || item.category, statuses[item.status] || item.status].join(' ').toLowerCase();
+      return inCategory && (!query || haystack.includes(query));
+    });
+    $('#feed-result-count').textContent = incidents.length ? `${rows.length} of ${incidents.length} public ${incidents.length === 1 ? 'incident' : 'incidents'}` : '';
+    list.innerHTML = rows.map((item) => {
+      const category = escapeHtml(labels[item.category] || item.category || 'Incident');
+      const status = escapeHtml(statuses[item.status] || item.status || 'Published');
+      const location = item.location_label ? `<p class="feed-card-location"><span aria-hidden="true">⌖</span>${escapeHtml(item.location_label)}</p>` : '';
+      const created = escapeHtml(item.created_at || '');
+      return `<li class="feed-incident-item"><article class="feed-incident-card"><div class="feed-card-meta"><span class="feed-category-chip">${category}</span><time datetime="${created}">${escapeHtml(relativeDate(item.created_at))}</time><span class="feed-status-chip">${status}</span></div><h3>${escapeHtml(item.title)}</h3>${location}<p class="feed-card-description">${escapeHtml(item.description || '')}</p>${renderMediaMarkup(incidentMedia[item.id], 'feed')}<button class="feed-details-button" type="button" data-incident="${escapeHtml(item.id)}">View details <span aria-hidden="true">→</span></button></article></li>`;
+    }).join('');
+    list.querySelectorAll('[data-incident]').forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.incident)));
+    const empty = $('#feed-state');
+    if (!rows.length) {
+      empty.hidden = false;
+      if (incidents.length && (activeFilter !== 'all' || query)) state(empty, 'No matching incidents', 'Try another category or edit your search to see more public reports.');
+      else state(empty, 'No public incidents yet', 'There are no incidents currently published to the community feed.');
+    } else empty.hidden = true;
+  }
+  async function loadFeed() {
+    const requestId = ++feedRequest;
+    const st = $('#feed-state');
+    const mediaState = $('#feed-media-state');
+    st.hidden = false;
+    st.innerHTML = '<div class="skeleton" aria-label="Loading incidents"></div>';
+    $('#incident-list').innerHTML = '';
+    mediaState.hidden = true;
+    if (!window.BincomData.isConfigured()) { state(st, 'Public feed is not connected', window.BincomData.configurationMessage()); return; }
+    try {
+      const result = await window.BincomData.listPublicReports();
+      if (requestId !== feedRequest) return;
+      if (result.error) { state(st, 'We could not load incidents', 'Check your connection and try again. Published incidents have not been replaced with sample content.', loadFeed); return; }
+      incidents = result.data || [];
+      incidentMedia = Object.create(null);
+      if (incidents.length) {
+        const mediaResult = await window.BincomData.listReportMedia(incidents.map((item) => item.id));
+        if (requestId !== feedRequest) return;
+        (mediaResult.data || []).forEach((item) => {
+          if (!incidentMedia[item.report_id]) incidentMedia[item.report_id] = [];
+          incidentMedia[item.report_id].push(item);
+        });
+        if (mediaResult.error || mediaResult.failedCount) {
+          mediaState.textContent = 'Some incident photos or videos could not be loaded. Refresh the feed to try again.';
+          mediaState.hidden = false;
+        }
+      }
+      renderFilters();
+      renderIncidents();
+    } catch (_) {
+      if (requestId !== feedRequest) return;
+      state(st, 'We could not load incidents', 'Check your connection and try again. Published incidents have not been replaced with sample content.', loadFeed);
+    }
+  }
+  async function openDetail(id) {
+    const requestId = ++detailRequest;
+    showScreen('detail');
+    const target = $('#detail-content');
+    target.innerHTML = '<div class="state-card"><div class="skeleton"></div></div>';
+    const fallback = incidents.find((item) => item.id === id);
+    if (!fallback) { state(target, 'Incident unavailable', 'This published incident could not be found. Return to the feed and try again.'); return; }
+    try {
+      const result = await window.BincomData.getPublicReport(id);
+      if (requestId !== detailRequest) return;
+      const incident = result.data || fallback;
+      if (result.error && !incident) { state(target, 'Incident unavailable', 'This incident may no longer be published. Return to the feed and try again.'); return; }
+      const mediaResult = await window.BincomData.listReportMedia([id]);
+      if (requestId !== detailRequest) return;
+      const mediaWarning = mediaResult.error || mediaResult.failedCount
+        ? '<p class="incident-media-warning" role="status">Some attached photos or videos could not be loaded. Try again later.</p>' : '';
+      target.innerHTML = `<article><div class="detail-hero"><span class="chip">${escapeHtml(labels[incident.category] || incident.category)}</span><h2 id="detail-title">${escapeHtml(incident.title)}</h2><span class="detail-date">${date(incident.created_at)}</span></div><div class="detail-body"><h3>Status</h3><p><span class="chip status-chip">${escapeHtml(statuses[incident.status] || incident.status || 'Published')}</span></p><h3>What was reported</h3><p>${escapeHtml(incident.description)}</p>${renderMediaMarkup(mediaResult.data, 'detail')}${mediaWarning}${incident.location_label ? `<h3>Location</h3><p>${escapeHtml(incident.location_label)}</p>` : ''}</div></article>`;
+    } catch (_) {
+      if (requestId !== detailRequest) return;
+      state(target, 'Incident details are unavailable', 'Check your connection and return to the feed to try again.');
+    }
+  }
+  function authMessage(text, type) {
+    const node = $('#auth-message');
+    node.textContent = text || '';
+    node.className = type ? `auth-alert ${type}` : 'auth-alert';
+    node.hidden = !text;
+  }
+  function updateSession(next) {
+    session = next || null;
+    $('#sign-out').hidden = !session;
+    $('#auth-form').hidden = !!session;
+    $('#auth-title').textContent = session ? 'Your account' : 'Welcome to WeSignal';
+    updateGate();
+  }
+  function updateGate() { $('#report-gate').hidden = !!session; }
+  function setAuthMode(mode) {
+    authMode = mode === 'signup' ? 'signup' : 'signin';
+    const signup = authMode === 'signup';
+    $('#tab-signin').classList.toggle('is-active', !signup);
+    $('#tab-signup').classList.toggle('is-active', signup);
+    $('#tab-signin').setAttribute('aria-selected', String(!signup));
+    $('#tab-signup').setAttribute('aria-selected', String(signup));
+    const confirmField = $('#auth-confirm-field');
+    const confirm = $('#auth-confirm-password');
+    confirmField.hidden = !signup;
+    confirm.disabled = !signup;
+    confirm.required = signup;
+    if (!signup) confirm.value = '';
+    $('#signup-password-hints').hidden = !signup;
+    $('#forgot-password-btn').hidden = signup;
+    $('#auth-password').autocomplete = signup ? 'new-password' : 'current-password';
+    $('#submit-text').textContent = signup ? 'Create Account' : 'Sign In';
+    $('#auth-submit').setAttribute('aria-label', signup ? 'Create account' : 'Sign in');
+    authMessage('', '');
+  }
+  function openAuth(from, mode) {
+    returnScreen = from || 'report';
+    if (returnScreen === 'welcome') {
+      $('#startup-splash').hidden = true;
+      $('#screen-onboarding').hidden = true;
+      $('#app-shell').hidden = false;
+    }
+    setAuthMode(mode || 'signin');
+    showScreen('auth');
+    setTimeout(() => $('#auth-email').focus({ preventScroll: true }), 60);
+  }
+  function updatePasswordStrength(value) {
+    const bar = $('#strength-bar');
+    const label = $('#strength-label');
+    const level = value.length < 6 ? 1 : value.length < 10 ? 2 : 3;
+    bar.style.width = `${level * 33.333}%`;
+    bar.dataset.level = String(level);
+    label.textContent = value.length < 6 ? 'Too short' : value.length < 10 ? 'Meets minimum' : 'Longer is stronger';
+  }
+  function validateEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()); }
+  async function authenticate() {
+    if (authBusy) return;
+    const action = authMode;
+    const email = $('#auth-email').value.trim();
+    const password = $('#auth-password').value;
+    const confirmPassword = $('#auth-confirm-password').value;
+    $('#auth-email-error').hidden = !email || validateEmail(email);
+    $('#auth-email-check').hidden = !validateEmail(email);
+    if (!validateEmail(email)) { authMessage('Enter a valid email address.', 'error'); $('#auth-email').focus(); return; }
+    if (password.length < 6) { authMessage('Password must be at least 6 characters.', 'error'); $('#auth-password').focus(); return; }
+    if (action === 'signup' && password !== confirmPassword) { authMessage('Passwords do not match. Check both password fields.', 'error'); $('#auth-confirm-password').focus(); return; }
+    if (!window.BincomData.isConfigured()) { authMessage(window.BincomData.configurationMessage(), 'error'); return; }
+    authBusy = true;
+    const submit = $('#auth-submit');
+    submit.disabled = true;
+    $('#submit-spinner').hidden = false;
+    $('#submit-arrow').hidden = true;
+    $('#submit-text').textContent = authMode === 'signup' ? 'Creating account…' : 'Signing in…';
+    try {
+      const result = action === 'signup'
+        ? await window.BincomData.signUp(email, password)
+        : await window.BincomData.signIn(email, password);
+      if (result.error) { authMessage(result.error.message || 'Authentication failed. Please try again.', 'error'); return; }
+      const nextSession = result.data && result.data.session;
+      if (action === 'signup' && !nextSession) {
+        setAuthMode('signin');
+        authMessage('Account created. Check your email to confirm it, then sign in.', 'success');
+        return;
+      }
+      if (!nextSession) { authMessage('We could not establish a signed-in session. Please try again.', 'error'); return; }
+      startupResolved = true;
+      authResolved = true;
+      pendingStartupAuth = null;
+      updateSession(nextSession);
+      authMessage('You are signed in.', 'success');
+      if (returnScreen === 'welcome') showApplication('feed');
+      else showScreen(returnScreen);
+    } catch (error) {
+      authMessage(error && error.message ? error.message : 'A network error prevented sign-in. Check your connection and try again.', 'error');
+    } finally {
+      authBusy = false;
+      submit.disabled = false;
+      $('#submit-spinner').hidden = true;
+      $('#submit-arrow').hidden = false;
+      $('#submit-text').textContent = authMode === 'signup' ? 'Create Account' : 'Sign In';
+    }
+  }
+  async function requestPasswordReset() {
+    const email = $('#auth-email').value.trim();
+    if (!validateEmail(email)) { authMessage('Enter your email address above before requesting a reset link.', 'error'); $('#auth-email').focus(); return; }
+    if (!window.BincomData.isConfigured()) { authMessage(window.BincomData.configurationMessage(), 'error'); return; }
+    const button = $('#forgot-password-btn');
+    button.disabled = true;
+    try {
+      const result = await window.BincomData.resetPassword(email);
+      if (result.error) authMessage(result.error.message || 'Could not send a password reset email. Please try again.', 'error');
+      else authMessage('If an account exists for this email, a password reset link will be sent.', 'success');
+    } catch (error) { authMessage(error && error.message ? error.message : 'A network error prevented the reset request.', 'error'); }
+    finally { button.disabled = false; }
+  }
   function formMessage(text,type){const n=$('#form-message');n.textContent=text;n.className=type?`form-message ${type}`:'form-message';}
-  function validate(d){if(!d.title||d.title.trim().length<3)return'Add a short title with at least 3 characters.';if(!d.category)return'Choose a category.';if(!d.description||d.description.trim().length<10)return'Add at least 10 characters describing the issue.';return'';}
-  async function submitReport(e){e.preventDefault();formMessage('','');const d=Object.fromEntries(new FormData($('#report-form')).entries());const err=validate(d);if(err){formMessage(err,'error');return;}if(!session){formMessage('Sign in is required before submitting a report. No report was sent.','error');openAuth('report');return;}if(!window.BincomData.isConfigured()){formMessage(window.BincomData.configurationMessage()+' Nothing was sent.','error');return;}const b=$('#report-form button[type="submit"]');b.disabled=true;b.textContent='Submitting…';const r=await window.BincomData.createReport({title:d.title.trim(),category:d.category,description:d.description.trim(),location_label:d.location_label.trim()||null,latitude:d.latitude?Number(d.latitude):null,longitude:d.longitude?Number(d.longitude):null});b.disabled=false;b.innerHTML='Submit report <span aria-hidden="true">→</span>';if(r.error){formMessage(`The report was not sent: ${r.error.message}`,'error');return;}formMessage('Report submitted securely. It is private until an authorized workflow publishes it.','success');$('#report-form').reset();$('#description-count').textContent='0';$('#location-status').textContent='';}
-  async function loadReports(){const st=$('#reports-state');$('#reports-list').innerHTML='';st.hidden=false;if(!session){state(st,'Sign in to view your reports','Your private submitted reports are only available to your account.');return;}if(!window.BincomData.isConfigured()){state(st,'Reports are not connected',window.BincomData.configurationMessage());return;}st.innerHTML='<div class="skeleton" aria-label="Loading reports"></div>';const r=await window.BincomData.listReports();if(r.error){state(st,'We could not load your reports','Check your connection and try again.',loadReports);return;}if(!r.data.length){state(st,'No reports yet','Reports you submit from this account will appear here.');return;}st.hidden=true;$('#reports-list').innerHTML=r.data.map((i)=>`<li class="incident-card"><div class="incident-top"><span class="chip">${escapeHtml(labels[i.category]||i.category)}</span><span class="chip status-chip">${escapeHtml(statuses[i.status]||i.status)}</span></div><h3>${escapeHtml(i.title)}</h3><div class="incident-meta"><span>${date(i.created_at)}</span>${i.location_label?`<span>· ${escapeHtml(i.location_label)}</span>`:''}</div></li>`).join('');}
+  function markReportDraft() {
+    $('#report-progress-state').textContent = 'Not submitted';
+    if ($('#form-message').classList.contains('success')) formMessage('', '');
+  }
+  function setReportCategory(value) {
+    const select = $('#category');
+    select.value = value || '';
+    document.querySelectorAll('[data-report-category]').forEach((button) => {
+      const selected = button.dataset.reportCategory === value;
+      button.classList.toggle('is-selected', selected);
+      button.setAttribute('aria-checked', String(selected));
+      button.tabIndex = selected ? 0 : (value ? -1 : (button.dataset.reportCategory === 'roads_infrastructure' ? 0 : -1));
+    });
+  }
+  function validate(d) {
+    if (!d.title || d.title.trim().length < 3) return 'Add a short title with at least 3 characters.';
+    if (d.title.trim().length > 120) return 'The title must be 120 characters or fewer.';
+    if (!Object.hasOwn(labels, d.category)) return 'Choose an incident category.';
+    if (!d.description || d.description.trim().length < 10) return 'Add at least 10 characters describing the issue.';
+    if (d.description.trim().length > 2000) return 'The description must be 2,000 characters or fewer.';
+    if (d.location_label && d.location_label.trim().length > 240) return 'The location must be 240 characters or fewer.';
+    return '';
+  }
+  async function submitReport(e) {
+    e.preventDefault();
+    formMessage('', '');
+    const form = $('#report-form');
+    const data = Object.fromEntries(new FormData(form).entries());
+    const validationError = validate(data);
+    if (validationError) {
+      formMessage(validationError, 'error');
+      if (!data.category) $('[data-report-category]').focus();
+      else if (!data.title || data.title.trim().length < 3) $('#title').focus();
+      else if (!data.description || data.description.trim().length < 10) $('#description').focus();
+      return;
+    }
+    if (!session) {
+      formMessage('Sign in is required before submitting a report. No report was sent.', 'error');
+      openAuth('report');
+      return;
+    }
+    if (!window.BincomData.isConfigured()) {
+      formMessage(window.BincomData.configurationMessage() + ' Nothing was sent.', 'error');
+      return;
+    }
+    const attachments = window.ReportMedia.getSelected();
+    const button = $('#report-form button[type="submit"]');
+    button.disabled = true;
+    window.ReportMedia.setBusy(true);
+    $('#report-progress-state').textContent = attachments.length ? 'Uploading attachments…' : 'Submitting…';
+    button.innerHTML = '<span class="report-submit-spinner" aria-hidden="true"></span> Submitting report…';
+    try {
+      const result = await window.BincomData.createReport({
+        title: data.title.trim(),
+        category: data.category,
+        description: data.description.trim(),
+        location_label: data.location_label.trim() || null,
+        latitude: data.latitude ? Number(data.latitude) : null,
+        longitude: data.longitude ? Number(data.longitude) : null
+      }, attachments, (progress) => {
+        if (progress.stage === 'upload') {
+          const text = `Uploading attachment ${progress.index} of ${progress.total} · ${progress.percent}%`;
+          $('#report-progress-state').textContent = text;
+          window.ReportMedia.setStatus(text, 'progress');
+        } else {
+          $('#report-progress-state').textContent = 'Saving report…';
+          window.ReportMedia.setStatus('Saving report details…', 'progress');
+        }
+      });
+      if (result.error) {
+        if (result.mayHaveSubmitted) {
+          formMessage(`We could not confirm whether the report was saved. Check My Reports before submitting again. ${result.error.message}`, 'error');
+          window.ReportMedia.setStatus(result.error.message, 'error');
+          $('#report-progress-state').textContent = 'Check My Reports';
+        } else {
+          formMessage(`The report was not sent: ${result.error.message}`, 'error');
+          window.ReportMedia.setStatus(result.error.message, 'error');
+          $('#report-progress-state').textContent = 'Not submitted';
+        }
+        return;
+      }
+      window.ReportMedia.clear();
+      form.reset();
+      setReportCategory('');
+      formMessage('Report submitted securely. Its attachments are stored privately; the report remains private until an authorized workflow publishes it.', 'success');
+      $('#report-progress-state').textContent = 'Submitted · private';
+      $('#title-count').textContent = '0';
+      $('#description-count').textContent = '0';
+      $('#location-status').textContent = '';
+      $('#clear-location').hidden = true;
+    } catch (error) {
+      formMessage(`Submission could not be confirmed: ${error && error.message ? error.message : 'Check your connection, then review My Reports before trying again.'}`, 'error');
+      window.ReportMedia.setStatus(error && error.message ? error.message : 'The submission could not be confirmed.', 'error');
+    } finally {
+      window.ReportMedia.setBusy(false);
+      button.disabled = false;
+      button.innerHTML = '<span aria-hidden="true">↑</span> Submit incident report';
+    }
+  }
+  function showReportsState(title, body, actions = [], kind = 'empty') {
+    const panel = $('#reports-state');
+    panel.hidden = false;
+    panel.className = `reports-state reports-state-${kind}`;
+    $('#reports-state-title').textContent = title;
+    $('#reports-state-copy').textContent = body;
+    const actionBox = $('#reports-state-actions');
+    actionBox.replaceChildren();
+    actions.forEach((item) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = item.className || 'secondary-button';
+      button.textContent = item.label;
+      if (item.auth) button.dataset.reportsAuth = item.auth;
+      if (item.action) button.dataset.reportsAction = item.action;
+      actionBox.append(button);
+    });
+  }
+  function renderMyReports() {
+    const active = myReports.filter((item) => item.status !== 'resolved');
+    const resolved = myReports.filter((item) => item.status === 'resolved');
+    $('#reports-count-all').textContent = myReports.length;
+    $('#reports-count-active').textContent = active.length;
+    $('#reports-count-resolved').textContent = resolved.length;
+    $('#reports-summary').textContent = `${myReports.length} report${myReports.length === 1 ? '' : 's'} on this account`;
+    document.querySelectorAll('[data-reports-filter]').forEach((button) => {
+      const selected = button.dataset.reportsFilter === reportsFilter;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    const filtered = reportsFilter === 'active' ? active : reportsFilter === 'resolved' ? resolved : myReports;
+    const list = $('#reports-list');
+    if (!filtered.length) {
+      list.hidden = true;
+      list.replaceChildren();
+      const label = reportsFilter === 'resolved' ? 'resolved' : 'active';
+      showReportsState(`No ${label} reports`, reportsFilter === 'resolved' ? 'Resolved reports from your account will appear here.' : 'Reports that are still open will appear here.', reportsFilter === 'active' ? [{ label: 'Report an incident', action: 'create', className: 'primary-button' }] : []);
+      return;
+    }
+    $('#reports-state').hidden = true;
+    list.hidden = false;
+    list.innerHTML = filtered.map((item) => {
+      const statusKey = Object.hasOwn(statuses, item.status) ? item.status : 'unknown';
+      const statusLabel = statuses[statusKey] || 'Status unavailable';
+      const categoryLabel = labels[item.category] || item.category || 'Other';
+      const description = typeof item.description === 'string' ? item.description.trim() : '';
+      const excerpt = description.length > 180 ? `${description.slice(0, 177).trimEnd()}…` : description;
+      const createdAt = item.created_at || '';
+      const location = item.location_label ? item.location_label : 'No location added';
+      return `<li class="account-report-card"><div class="account-report-top"><div class="account-report-badges"><span class="account-report-status status-${statusKey}">${escapeHtml(statusLabel)}</span><span class="account-report-category">${escapeHtml(categoryLabel)}</span></div><time datetime="${escapeHtml(createdAt)}">${escapeHtml(date(createdAt))}</time></div><h3>${escapeHtml(item.title || 'Untitled report')}</h3><p class="account-report-description">${escapeHtml(excerpt)}</p><div class="account-report-location"><span aria-hidden="true">⌖</span><span>${escapeHtml(location)}</span></div></li>`;
+    }).join('');
+  }
+  async function loadReports() {
+    const requestId = ++reportsRequest;
+    myReports = [];
+    $('#reports-list').replaceChildren();
+    $('#reports-list').hidden = true;
+    $('#reports-filters').hidden = true;
+    $('#reports-count-all').textContent = '0';
+    $('#reports-count-active').textContent = '0';
+    $('#reports-count-resolved').textContent = '0';
+    if (!session) {
+      $('#reports-summary').textContent = 'Sign in to view your reports';
+      showReportsState('Your reports are private', 'Sign in to view reports submitted from your account. Reports are not available in guest mode.', [
+        { label: 'Sign in', auth: 'signin', className: 'primary-button' },
+        { label: 'Create account', auth: 'signup', className: 'secondary-button' }
+      ], 'access');
+      return;
+    }
+    if (!window.BincomData.isConfigured()) {
+      $('#reports-summary').textContent = 'Private reports are unavailable';
+      showReportsState('Reports are not connected', window.BincomData.configurationMessage(), [], 'error');
+      return;
+    }
+    $('#reports-summary').textContent = 'Loading your reports…';
+    showReportsState('Loading your reports', 'Fetching reports submitted from your account.', [], 'loading');
+    try {
+      const result = await window.BincomData.listReports();
+      if (requestId !== reportsRequest) return;
+      if (result.error) {
+        $('#reports-summary').textContent = 'Reports could not be refreshed';
+        showReportsState('We could not load your reports', 'Check your connection and try again.', [{ label: 'Try again', action: 'retry', className: 'secondary-button' }], 'error');
+        return;
+      }
+      myReports = Array.isArray(result.data) ? result.data : [];
+      if (!myReports.length) {
+        $('#reports-summary').textContent = '0 reports on this account';
+        showReportsState('No reports yet', 'Reports you submit from this account will appear here.', [{ label: 'Report an incident', action: 'create', className: 'primary-button' }]);
+        return;
+      }
+      $('#reports-filters').hidden = false;
+      renderMyReports();
+    } catch (_) {
+      if (requestId !== reportsRequest) return;
+      $('#reports-summary').textContent = 'Reports could not be refreshed';
+      showReportsState('We could not load your reports', 'Check your connection and try again.', [{ label: 'Try again', action: 'retry', className: 'secondary-button' }], 'error');
+    }
+  }
+
   document.addEventListener('focusin',(e)=>{if(e.target.matches('input:not([type="hidden"]),textarea')){document.body.classList.add('keyboard-open');setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),250);}});
   document.addEventListener('focusout',(e)=>{if(e.target.matches('input,textarea'))setTimeout(()=>{if(!document.activeElement.matches('input:not([type="hidden"]),textarea'))document.body.classList.remove('keyboard-open');},100);});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',()=>{if(window.visualViewport.height<window.innerHeight-140)document.body.classList.add('keyboard-open');else document.body.classList.remove('keyboard-open');});
-  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>showScreen(returnScreen));$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#refresh-reports').addEventListener('click',loadReports);$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate('signin');});$('[data-auth-action="signup"]').addEventListener('click',()=>authenticate('signup'));$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{updateSession(null);showScreen('feed');}});$('#gate-login').addEventListener('click',()=>openAuth('report'));$('#gate-signup').addEventListener('click',()=>openAuth('report'));$('#report-form').addEventListener('submit',submitReport);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{$('#latitude').value=p.coords.latitude;$('#longitude').value=p.coords.longitude;$('#location-status').textContent='Location added to this report.';},()=>{$('#location-status').textContent='Location permission was not granted. You can enter a landmark instead.';},{enableHighAccuracy:false,timeout:10000});});
-  (async function init(){renderFilters();if(!onboardingDone())return;$('#screen-onboarding').hidden=true;$('#app-shell').hidden=false;showScreen('feed');loadFeed();if(window.BincomData.isConfigured()){const r=await window.BincomData.getSession();updateSession(r.data.session);window.BincomData.onAuthStateChange((_e,s)=>updateSession(s));}else updateSession(null);}());
+  $('#get-started').addEventListener('click',completeOnboarding);$('#skip-onboarding').addEventListener('click',completeOnboarding);document.querySelectorAll('[data-screen]').forEach((b)=>b.addEventListener('click',()=>showScreen(b.dataset.screen)));$('#header-account').addEventListener('click',()=>openAuth('feed'));$('#detail-back').addEventListener('click',()=>showScreen('feed'));$('#auth-back').addEventListener('click',()=>{if(returnScreen==='welcome')showWelcome();else showScreen(returnScreen);});$('#report-back').addEventListener('click',()=>showScreen('feed'));$('#reset-filter').addEventListener('click',()=>{activeFilter='all';searchQuery='';$('#incident-search').value='';$('#clear-search').hidden=true;$('#reset-filter').hidden=true;renderFilters();renderIncidents();});$('#incident-search').addEventListener('input',()=>{searchQuery=$('#incident-search').value.trim().toLowerCase();$('#clear-search').hidden=!searchQuery;$('#reset-filter').hidden=activeFilter==='all'&&!searchQuery;renderIncidents();});$('#clear-search').addEventListener('click',()=>{$('#incident-search').value='';searchQuery='';$('#clear-search').hidden=true;$('#reset-filter').hidden=activeFilter==='all';renderIncidents();$('#incident-search').focus();});$('#refresh-reports').addEventListener('click',loadReports);$('#reports-state-actions').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.reportsAuth)openAuth('reports',button.dataset.reportsAuth);else if(button.dataset.reportsAction==='retry')loadReports();else if(button.dataset.reportsAction==='create')showScreen('report');});document.querySelectorAll('[data-reports-filter]').forEach((button)=>button.addEventListener('click',()=>{reportsFilter=button.dataset.reportsFilter;renderMyReports();}));$('#auth-form').addEventListener('submit',(e)=>{e.preventDefault();authenticate();});document.querySelectorAll('[data-auth-mode]').forEach((b)=>b.addEventListener('click',()=>{if(!authBusy)setAuthMode(b.dataset.authMode);}));$('#auth-guest').addEventListener('click',()=>showApplication('feed'));$('#auth-guest-top').addEventListener('click',()=>showApplication('feed'));$('#forgot-password-btn').addEventListener('click',requestPasswordReset);$('#auth-email').addEventListener('input',()=>{const valid=validateEmail($('#auth-email').value);$('#auth-email-error').hidden=!$('#auth-email').value||valid;$('#auth-email-check').hidden=!valid;});$('#auth-password').addEventListener('input',()=>updatePasswordStrength($('#auth-password').value));$('#toggle-password').addEventListener('click',()=>{const field=$('#auth-password');const reveal=field.type==='password';field.type=reveal?'text':'password';$('#toggle-password').textContent=reveal?'Hide':'Show';$('#toggle-password').setAttribute('aria-label',reveal?'Hide password':'Show password');});$('#sign-out').addEventListener('click',async()=>{const r=await window.BincomData.signOut();if(r.error)authMessage(r.error.message,'error');else{authResolved=true;updateSession(null);showWelcome();}});$('#gate-login').addEventListener('click',()=>openAuth('report','signin'));$('#gate-signup').addEventListener('click',()=>openAuth('report','signup'));$('#report-form').addEventListener('submit',submitReport);$('#report-form').addEventListener('input',markReportDraft);$('#report-form').addEventListener('change',markReportDraft);document.addEventListener('reportmediachange',markReportDraft);$('#title').addEventListener('input',()=>$('#title-count').textContent=$('#title').value.length);$('#description').addEventListener('input',()=>$('#description-count').textContent=$('#description').value.length);document.querySelectorAll('[data-report-category]').forEach((button)=>{button.addEventListener('click',()=>{setReportCategory(button.dataset.reportCategory);markReportDraft();});button.addEventListener('keydown',(event)=>{if(!['ArrowRight','ArrowDown','ArrowLeft','ArrowUp'].includes(event.key))return;event.preventDefault();const choices=[...document.querySelectorAll('[data-report-category]')];const index=choices.indexOf(button);const direction=['ArrowRight','ArrowDown'].includes(event.key)?1:-1;const next=choices[(index+direction+choices.length)%choices.length];setReportCategory(next.dataset.reportCategory);markReportDraft();next.focus();});});$('#use-location').addEventListener('click',()=>{if(!navigator.geolocation){$('#location-status').textContent='Location is not available on this device.';return;}$('#location-status').textContent='Requesting location permission…';navigator.geolocation.getCurrentPosition((p)=>{$('#latitude').value=p.coords.latitude;$('#longitude').value=p.coords.longitude;$('#clear-location').hidden=false;$('#location-status').textContent='GPS coordinates added to this report.';markReportDraft();},()=>{$('#location-status').textContent='Location permission was not granted. You can enter a landmark instead.';},{enableHighAccuracy:false,timeout:10000});});$('#clear-location').addEventListener('click',()=>{$('#latitude').value='';$('#longitude').value='';$('#clear-location').hidden=true;$('#location-status').textContent='GPS coordinates removed from this report.';markReportDraft();});
+  $('#startup-retry').addEventListener('click', initializeStartup);
+  $('#startup-guest').addEventListener('click', () => showApplication('feed'));
+  $('#welcome-account').addEventListener('click', () => openAuth('welcome'));
+  $('#welcome-signin').addEventListener('click', () => openAuth('welcome'));
+  (function init() { document.addEventListener('error', handleIncidentMediaError, true); window.ReportMedia.init(); renderFilters(); initializeStartup(); }());
 })();
