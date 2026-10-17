@@ -278,6 +278,10 @@
       if (!client) return { data: null, error: unavailable() };
       return client.rpc('confirm_report_resolution', { p_report_id: reportId });
     },
+    async getPublicReportConfirmationSummary(reportId) {
+      if (!client) return { data: null, error: unavailable() };
+      return client.rpc('get_public_report_confirmation_summary', { p_report_id: reportId });
+    },
     async appendReportMedia(reportId, attachments = [], onProgress) {
       if (!client) return { data: null, error: unavailable(), mayHaveSubmitted: false };
       const current = await client.auth.getSession();

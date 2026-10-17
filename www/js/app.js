@@ -4,7 +4,7 @@
   const screens = [...document.querySelectorAll('.screen')];
   const labels = { waste_sanitation:'Waste & Sanitation', water_supply_leakage:'Water Supply & Leakage', electricity_power:'Electricity & Power', flooding_drainage:'Flooding & Drainage', roads_infrastructure:'Roads & Infrastructure', traffic_transportation:'Traffic & Transportation', accidents_emergencies:'Accidents & Emergencies', crime_public_safety:'Crime & Public Safety', civil_unrest_rioting:'Civil Unrest & Rioting', environmental_hazards:'Environmental Hazards', other:'Other' };
   const statuses = { submitted:'Reported', acknowledged:'Acknowledged', in_progress:'In progress', resolved:'Resolved' };
-  let session = null; let activeFilter = 'all'; let incidents = []; let incidentMedia = Object.create(null); let feedRequest = 0; let detailRequest = 0; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
+  let session = null; let activeFilter = 'all'; let incidents = []; let incidentMedia = Object.create(null); let feedRequest = 0; let detailRequest = 0; let currentDetailId = null; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
   let myReports = []; let myReportsState = 'idle'; let reportsFilter = 'all'; let reportsRequest = 0; let editingReportId = null;
   let authResolved = false; let startupResolved = false; let startupBusy = false; let authSubscription = null; let pendingStartupAuth = null; let authMode = 'signin';
   const authCallbackPromises = new Map();
@@ -219,6 +219,7 @@
     const screenTitles = { feed: 'Explore', detail: 'Incident details', auth: session ? 'Your account' : 'Authentication', report: 'Report an issue', reports: 'My Reports' };
     $('#header-screen-title').textContent = screenTitles[name] || 'WeSignal';
     document.body.classList.toggle('feed-screen-active', name === 'feed');
+    document.body.classList.toggle('detail-screen-active', name === 'detail');
     document.body.classList.toggle('report-screen-active', name === 'report');
     document.body.classList.toggle('reports-screen-active', name === 'reports');
     document.body.classList.toggle('form-active', name === 'report' || name === 'auth');
@@ -230,7 +231,7 @@
     if (name === 'reports' || (name === 'auth' && session)) loadReports();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  function state(el,title,body,retry) { el.innerHTML=`<h3>${title}</h3><p>${body}</p>${retry?'<button class="secondary-button retry-button" type="button">Try again</button>':''}`; if(retry) el.querySelector('button').addEventListener('click',retry); }
+  function state(el,title,body,retry) { const headingId=el.id==='detail-content'?' id="detail-title"':''; el.innerHTML=`<h3${headingId}>${title}</h3><p>${body}</p>${retry?'<button class="secondary-button retry-button" type="button">Try again</button>':''}`; if(retry) el.querySelector('button').addEventListener('click',retry); }
   function renderFilters() {
     const el = $('#category-filters');
     const filters = ['all', ...Object.keys(labels)];
@@ -316,31 +317,44 @@
   }
   async function openDetail(id) {
     const requestId = ++detailRequest;
+    currentDetailId = id;
     showScreen('detail');
     const target = $('#detail-content');
-    target.innerHTML = '<div class="state-card"><div class="skeleton"></div></div>';
+    target.innerHTML = window.WeSignalIncidentDetailView.loadingMarkup();
     const fallback = incidents.find((item) => item.id === id);
-    if (!fallback) { state(target, 'Incident unavailable', 'This published incident could not be found. Return to the feed and try again.'); return; }
+    if (!fallback) { state(target, 'Incident unavailable', 'This published incident could not be found. Return to the feed and try again.', loadFeed); return; }
     try {
       const result = await window.BincomData.getPublicReport(id);
       if (requestId !== detailRequest) return;
       const incident = result.data || fallback;
       if (result.error && !incident) { state(target, 'Incident unavailable', 'This incident may no longer be published. Return to the feed and try again.'); return; }
-      const mediaResult = await window.BincomData.listReportMedia([id]);
+      const [mediaResult, confirmationResult] = await Promise.all([
+        window.BincomData.listReportMedia([id]),
+        window.BincomData.getPublicReportConfirmationSummary(id)
+      ]);
       if (requestId !== detailRequest) return;
-      const mediaWarning = mediaResult.error || mediaResult.failedCount
-        ? '<p class="incident-media-warning" role="status">Some attached photos or videos could not be loaded. Try again later.</p>' : '';
+      const mediaHtml = renderMediaMarkup(mediaResult.data, 'detail');
+      const mediaUnavailable = Boolean(mediaResult.error || (mediaResult.failedCount && !mediaHtml));
+      const mediaWarning = mediaResult.failedCount && mediaHtml
+        ? 'Some attachments could not be loaded. The visible attachments are still available.' : '';
       const point = coordinates(incident.latitude, incident.longitude);
-      const locationText = incident.location_label || (point && point.label);
-      const locationMarkup = locationText ? `<h3>Location</h3><p>${escapeHtml(locationText)}</p>${point ? mapPinLink(incident) : ''}` : '';
-      const confirmations = Math.max(0, Math.min(3, Number(incident.resolution_confirmations) || 0));
-      const resolutionMarkup = incident.status === 'resolved' || confirmations >= 3
-        ? `<p id="resolution-progress" role="status">${confirmations || 3} of 3 community confirmations · Resolved</p>`
-        : `<p id="resolution-progress" role="status">${confirmations} of 3 community confirmations</p><button class="secondary-button" type="button" data-confirm-report="${escapeHtml(incident.id)}">${session ? 'Confirm this incident is resolved' : 'Sign in to confirm'}</button><p id="resolution-feedback" class="auth-alert" role="status" hidden></p>`;
-      target.innerHTML = `<article><div class="detail-hero"><span class="chip">${escapeHtml(labels[incident.category] || incident.category)}</span><h2 id="detail-title">${escapeHtml(incident.title)}</h2><span class="detail-date">${date(incident.created_at)}</span></div><div class="detail-body"><h3>Status</h3><p><span class="chip status-chip">${escapeHtml(statuses[incident.status] || incident.status || 'Published')}</span></p><h3>Community confirmations</h3>${resolutionMarkup}<h3>What was reported</h3><p>${escapeHtml(incident.description)}</p>${renderMediaMarkup(mediaResult.data, 'detail')}${mediaWarning}${locationMarkup}</div></article>`;
+      target.innerHTML = window.WeSignalIncidentDetailView.render({
+        incident,
+        summary: confirmationResult.error ? { error: true } : confirmationResult.data,
+        signedIn: Boolean(session),
+        categoryLabel: labels[incident.category] || incident.category,
+        statusLabel: statuses[incident.status] || incident.status || 'Published',
+        dateText: date(incident.created_at),
+        point,
+        locationActionHtml: point ? mapPinLink(incident) : '',
+        mediaHtml,
+        mediaState: mediaUnavailable ? 'error' : 'ready',
+        mediaWarning,
+        reportWarning: result.error ? 'Could not refresh this incident from Supabase; showing the last feed data available on this device.' : ''
+      });
     } catch (_) {
       if (requestId !== detailRequest) return;
-      state(target, 'Incident details are unavailable', 'Check your connection and return to the feed to try again.');
+      state(target, 'Incident details are unavailable', 'Check your connection and try loading this incident again.', () => openDetail(id));
     }
   }
   async function submitResolutionConfirmation(reportId, button) {
@@ -348,18 +362,20 @@
     button.disabled = true;
     button.textContent = 'Saving confirmation…';
     let message = '';
+    let feedbackType = 'success';
     try {
       const result = await window.BincomData.confirmReportResolution(reportId);
-      if (result.error) message = result.error.message || 'Your confirmation could not be saved.';
+      if (result.error) { message = result.error.message || 'Your confirmation could not be saved.'; feedbackType = 'error'; }
       else if (result.data && result.data.confirmed) message = result.data.status === 'resolved' ? 'Your confirmation was recorded. This incident is now resolved.' : 'Your confirmation was recorded.';
       else if (result.data && result.data.status === 'resolved') message = 'This incident is already resolved.';
       else message = 'You have already confirmed this incident.';
     } catch (error) {
       message = error && error.message || 'Your confirmation could not be saved.';
+      feedbackType = 'error';
     }
     await openDetail(reportId);
     const feedback = $('#resolution-feedback');
-    if (feedback) { feedback.textContent = message; feedback.hidden = !message; }
+    if (feedback) { feedback.textContent = message; feedback.className = `detail-confirmation-feedback${feedbackType === 'error' ? ' is-error' : ''}`; feedback.hidden = !message; }
   }
 
   function authMessage(text, type) {
@@ -771,7 +787,7 @@
   $('#account-my-reports').addEventListener('click', () => showScreen('reports'));
   $('#account-new-report').addEventListener('click', () => showScreen('report'));
   $('#account-explore').addEventListener('click', () => showScreen('feed'));
-  $('#detail-content').addEventListener('click', (event) => { const button = event.target.closest('[data-confirm-report]'); if (button) submitResolutionConfirmation(button.dataset.confirmReport, button); });
+  $('#detail-content').addEventListener('click', (event) => { const button = event.target.closest('button'); if (!button) return; if (button.hasAttribute('data-refresh-detail') && currentDetailId) { openDetail(currentDetailId); return; } if (button.hasAttribute('data-confirm-report')) submitResolutionConfirmation(button.dataset.confirmReport, button); });
   $('#startup-retry').addEventListener('click', initializeStartup);
   $('#startup-guest').addEventListener('click', () => showApplication('feed'));
   $('#welcome-account').addEventListener('click', () => openAuth('welcome'));
