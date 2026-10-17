@@ -19,6 +19,9 @@
     'image/heic': 'heic', 'image/heif': 'heif', 'video/mp4': 'mp4', 'video/webm': 'webm',
     'video/quicktime': 'mov', 'video/3gpp': '3gp', 'video/x-m4v': 'm4v'
   };
+  function mediaDiagnostic(stage, details) {
+    try { console.info('[WeSignal media]', { stage, ...details }); } catch (_) { /* Diagnostics must never interrupt uploads. */ }
+  }
   let client = null;
   if (hasConfig && window.supabase && typeof window.supabase.createClient === 'function') {
     client = window.supabase.createClient(config.supabaseUrl, publicKey, {
@@ -128,12 +131,18 @@
             contentType: mimeType,
             cacheControl: '3600'
           },
-          onError(error) { finish(reject, error instanceof Error ? error : new Error(String(error))); },
+          onError(error) {
+            mediaDiagnostic('storage-upload-result', { media_type: 'video', filename: String(file && file.name || 'attachment'), mime_type: mimeType, byte_count: Number(file && file.size) || 0, success: false, error_name: String(error && error.name || 'Error'), error_code: String(error && error.code || ''), http_status: Number(error && (error.status || error.statusCode)) || 0 });
+            finish(reject, error instanceof Error ? error : new Error(String(error)));
+          },
           onProgress(bytesUploaded, bytesTotal) {
             const percent = bytesTotal ? Math.min(100, Math.round((bytesUploaded / bytesTotal) * 100)) : 0;
             if (typeof onProgress === 'function') onProgress(percent);
           },
-          onSuccess() { finish(resolve, true); }
+          onSuccess() {
+            mediaDiagnostic('storage-upload-result', { media_type: 'video', filename: String(file && file.name || 'attachment'), mime_type: mimeType, byte_count: Number(file && file.size) || 0, success: true });
+            finish(resolve, true);
+          }
         });
         upload.start();
       } catch (error) {
@@ -153,19 +162,33 @@
     });
   }
   async function uploadImage(file, objectPath, mimeType, onProgress) {
-    const bytes = await readAsArrayBuffer(file);
-    if (!bytes || !bytes.byteLength) throw new Error('The selected image contains no readable bytes.');
+    let bytes;
+    try { bytes = await readAsArrayBuffer(file); }
+    catch (error) {
+      mediaDiagnostic('upload-byte-read-failed', { media_type: 'image', filename: String(file && file.name || 'attachment'), mime_type: mimeType, byte_count: 0, error_name: String(error && error.name || 'Error'), error_code: String(error && error.code || '') });
+      throw error;
+    }
+    if (!bytes || !bytes.byteLength) {
+      mediaDiagnostic('upload-byte-read-empty', { media_type: 'image', filename: String(file && file.name || 'attachment'), mime_type: mimeType, byte_count: 0 });
+      throw new Error('The selected image contains no readable bytes.');
+    }
+    mediaDiagnostic('storage-upload-start', { media_type: 'image', filename: String(file && file.name || 'attachment'), mime_type: mimeType, byte_count: bytes.byteLength });
     const result = await client.storage.from(MEDIA_BUCKET).upload(objectPath, bytes, {
       contentType: mimeType,
       cacheControl: '3600',
       upsert: false
     });
-    if (result.error) throw result.error;
+    if (result.error) {
+      mediaDiagnostic('storage-upload-result', { media_type: 'image', filename: String(file && file.name || 'attachment'), mime_type: mimeType, byte_count: bytes.byteLength, success: false, error_name: String(result.error.name || 'StorageError'), error_code: String(result.error.code || ''), http_status: Number(result.error.status || result.error.statusCode) || 0 });
+      throw result.error;
+    }
+    mediaDiagnostic('storage-upload-result', { media_type: 'image', filename: String(file && file.name || 'attachment'), mime_type: mimeType, byte_count: bytes.byteLength, success: true });
     if (typeof onProgress === 'function') onProgress(100);
     return bytes.byteLength;
   }
   async function uploadMedia(file, objectPath, mimeType, accessToken, onProgress) {
     if (mimeType.startsWith('image/')) return uploadImage(file, objectPath, mimeType, onProgress);
+    mediaDiagnostic('storage-upload-start', { media_type: 'video', filename: String(file && file.name || 'attachment'), mime_type: mimeType, byte_count: Number(file && file.size) || 0 });
     await uploadWithTus(file, objectPath, mimeType, accessToken, onProgress);
     return Number(file && file.size) || 0;
   }
@@ -230,12 +253,12 @@
     async signOut() { return client ? client.auth.signOut() : { error: unavailable() }; },
     async listPublicReports() {
       if (!client) return { data: [], error: unavailable() };
-      return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude')
+      return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude,resolution_confirmations')
         .eq('is_public', true).order('created_at', { ascending: false });
     },
     async getPublicReport(id) {
       if (!client) return { data: null, error: unavailable() };
-      return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude')
+      return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude,resolution_confirmations')
         .eq('id', id).eq('is_public', true).maybeSingle();
     },
     listReportMedia,
@@ -250,6 +273,10 @@
     async updateReport(payload) {
       if (!client) return { data: null, error: unavailable() };
       return client.rpc('update_own_report', { p_report_id: payload.id, p_title: payload.title, p_category: payload.category, p_description: payload.description, p_location_label: payload.location_label, p_latitude: payload.latitude, p_longitude: payload.longitude });
+    },
+    async confirmReportResolution(reportId) {
+      if (!client) return { data: null, error: unavailable() };
+      return client.rpc('confirm_report_resolution', { p_report_id: reportId });
     },
     async appendReportMedia(reportId, attachments = [], onProgress) {
       if (!client) return { data: null, error: unavailable(), mayHaveSubmitted: false };

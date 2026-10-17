@@ -1,8 +1,16 @@
 name: Deploy Supabase and build Android
 on:
-  push:
+  # Production migration history is not currently auditable from this sandbox.
+  # Keep deployment explicit until a maintainer completes and records reconciliation.
+  pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      confirm_migration_reconciliation:
+        description: Confirm you verified production migration history and live schema against the repository before deployment.
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -21,17 +29,18 @@ jobs:
         run: |
           supabase start
           supabase db lint --local --fail-on error
+          supabase test db
           supabase stop --no-backup
   deploy:
     needs: validate
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && inputs.confirm_migration_reconciliation == true
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || secrets.SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1

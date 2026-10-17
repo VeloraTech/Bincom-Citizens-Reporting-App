@@ -16,6 +16,15 @@
   const state = { selected: [], busy: false, replaceTargetId: null, initialized: false };
   const $ = (selector) => document.querySelector(selector);
 
+  function mediaDiagnostic(stage, details) {
+    try { console.info('[WeSignal media]', { stage, ...details }); } catch (_) { /* Diagnostics must never interrupt uploads. */ }
+  }
+
+  function uriScheme(uri) {
+    const match = String(uri || '').match(/^([a-z][a-z0-9+.-]*):/i);
+    return match ? match[1].toLowerCase() : 'relative-or-unknown';
+  }
+
   function escapeHtml(value) {
     return String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   }
@@ -187,26 +196,39 @@
       const mediaType = constants.MediaType ? constants.MediaType.ALLMEDIA : 2;
       setStatus('Opening your photo and video library…', 'progress');
       try {
+        // Camera plugin 8.x re-encodes gallery images with EXIF rotation into a
+        // transient `modified.jpg`; keep the original file URI/bytes instead.
         camera.getPicture((uri) => {
           const replacement = state.replaceTargetId;
           state.replaceTargetId = null;
           if (!uri) { setStatus('No attachment selected.', ''); return; }
           const fallbackName = filenameFromUri(uri);
+          mediaDiagnostic('picker-selection', { uri_scheme: uriScheme(uri), filename: fallbackName });
           window.resolveLocalFileSystemURL(uri, (entry) => {
             if (!entry || typeof entry.file !== 'function') {
+              mediaDiagnostic('file-entry-unavailable', { uri_scheme: uriScheme(uri), filename: fallbackName });
               setStatus(`Cannot attach ${fallbackName}: Android did not provide a readable file entry. Select another file or save it to the device first.`, 'error');
               return;
             }
             entry.file((file) => {
               const filename = file && file.name || entry.name || fallbackName;
+              mediaDiagnostic('file-entry', { uri_scheme: uriScheme(uri), filename, mime_type: String(file && file.type || ''), byte_count: Number(file && file.size) || 0 });
               normalizeCordovaFile(file, filename)
-                .then((normalized) => addFiles([normalized], replacement))
-                .catch((error) => setStatus(`Cannot attach ${filename}: ${error && error.message ? error.message : 'the file could not be read.'} Try another file or save it to the device first.`, 'error'));
+                .then((normalized) => {
+                  mediaDiagnostic('file-normalized', { uri_scheme: uriScheme(uri), filename: normalized.name, mime_type: normalized.mimeType, byte_count: normalized.size });
+                  addFiles([normalized], replacement);
+                })
+                .catch((error) => {
+                  mediaDiagnostic('file-read-failed', { uri_scheme: uriScheme(uri), filename, error_name: String(error && error.name || 'Error'), error_code: String(error && error.code || '') });
+                  setStatus(`Cannot attach ${filename}: ${error && error.message ? error.message : 'the file could not be read.'} Try another file or save it to the device first.`, 'error');
+                });
             }, (error) => {
+              mediaDiagnostic('file-read-failed', { uri_scheme: uriScheme(uri), filename: fallbackName, error_name: String(error && error.name || 'FileError'), error_code: String(error && error.code || '') });
               const reason = error && error.message ? error.message : error && error.code ? `Cordova file error ${error.code}` : 'the Android file grant may have expired';
               setStatus(`Cannot attach ${fallbackName}: Android could not read the selected file (${reason}). Select it again or save it to the device first.`, 'error');
             });
           }, (error) => {
+            mediaDiagnostic('uri-resolution-failed', { uri_scheme: uriScheme(uri), filename: fallbackName, error_name: String(error && error.name || 'FileError'), error_code: String(error && error.code || '') });
             const reason = error && error.message ? error.message : error && error.code ? `Cordova URI error ${error.code}` : 'the Android content URI could not be resolved';
             setStatus(`Cannot attach ${fallbackName}: Android could not open the selected media (${reason}). Select it again or save it to the device first.`, 'error');
           });
@@ -215,7 +237,7 @@
           const message = String(error && (error.message || error) || '');
           if (/cancel|no media|no image selected/i.test(message)) setStatus('Media selection cancelled.', '');
           else setStatus(`Could not open the media library${message ? `: ${message}` : '.'}`, 'error');
-        }, { sourceType, destinationType, mediaType, allowEdit: false, correctOrientation: true });
+        }, { sourceType, destinationType, mediaType, allowEdit: false, correctOrientation: false });
       } catch (error) {
         state.replaceTargetId = null;
         setStatus(`Could not open the media library: ${error && error.message ? error.message : 'unsupported device.'}`, 'error');
