@@ -14,7 +14,7 @@ The latest preview is [WeSignal v0.1.18](https://github.com/VeloraTech/Bincom-Ci
 
 <!-- Add a YouTube, Vimeo, or other public demo-video URL here after recording. -->
 
-**Video demo:** _Add link here._
+**Video demo:** [Demo video](demo.mp4)
 
 <!-- Optional screenshots: add image files under docs/images/ and embed them here. -->
 
