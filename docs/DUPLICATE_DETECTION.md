@@ -39,7 +39,7 @@ Constraints limit the window to 1 second–7 days, distance to 0–50 km, and si
 
 ## Migration and tests
 
-Apply `supabase/migrations/20261021000000_duplicate_incident_detection.sql` only after reconciling the target project's migration history and actual schema. It is additive: it installs `pg_trgm`, creates settings/helpers/trigger/RPC, and does not rewrite existing reports or data. The app requires this migration before using the new RPC; otherwise new submissions will fail with a missing-function error. Do not reset production or blindly deploy the migration.
+For WeSignal production, migration `20261021000000_duplicate_incident_detection.sql` was applied successfully by [GitHub Actions run 39557459900](https://github.com/VeloraTech/Bincom-Citizens-Reporting-App/actions/runs/39557459900) on 2026-10-21, after reconciling the recorded migration history. The migration is additive: it installs `pg_trgm`, creates settings/helpers/trigger/RPC, and does not rewrite existing reports or data. A new target project still requires its own migration-history/schema reconciliation before applying this migration; do not reset production or blindly deploy it.
 
 Regression tests are in `supabase/tests/duplicate_incident_detection.test.sql`. They cover near-text/spatial matches, incompatible category, excessive distance, outside-window and private lookalikes, matching with missing coordinates, submission without coordinates, separate row preservation, unauthenticated rejection, status/confirmation noninterference, and serialization guard presence. Existing media/RLS and resolution pgTAP suites remain part of the required regression set.
 
@@ -51,8 +51,8 @@ supabase start
 supabase test db
 ```
 
-The client check was run locally. This environment did not have `supabase`, `psql`, or `pg_prove`, so SQL/pgTAP and true parallel-session behavior were not run locally. CI is being used to validate the migration and pgTAP suite. For a true concurrency check, use two authenticated SQL sessions on a disposable local/staging database: keep Session A's transaction open after calling the wrapper, call it for a similar report in Session B, verify B blocks until A commits and then returns A's report as a candidate. Never run this test against production with fixture inserts.
+The client checks passed, and GitHub Actions run `39557459900` successfully ran local Supabase startup, `supabase db lint`, and the pgTAP suite against an isolated local database. That validates the migration and regression suite, but does not constitute a true two-session concurrency exercise. For that separate check, use two authenticated SQL sessions on a disposable local/staging database: keep Session A's transaction open after calling the wrapper, call it for similar content in Session B, verify B blocks until A commits and then returns A's report as a candidate. Never run this test against production with fixture inserts.
 
 ## Current rollout status
 
-The migration is present on the feature branch and has **not** been applied to the live Supabase project. Merge the PR, reconcile production migration history/schema, deploy the migration, then release the matching app build. Existing app versions cannot call the new RPC until upgraded; do not deploy the client release ahead of the database migration.
+The duplicate-aware client and migration are included in the published `v0.1.19` release; the production database migration was deployed afterward by run `39557459900`. The release contains a debug-signed preview APK. No newer app tag is required to test duplicate suggestions. The client needs the RPC to exist in its Supabase project before submissions can use this feature.
