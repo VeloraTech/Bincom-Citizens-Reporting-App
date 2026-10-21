@@ -18,7 +18,7 @@ insert into public.reports (
   ('62000000-0000-4000-8000-000000000004', '61000000-0000-4000-8000-000000000002', 'Broken water pipe on Allen Avenue', 'A large water leak from a broken pipe is flooding Allen Avenue this morning.', 'water_supply_leakage', 'submitted', true, 6.52440, 3.37920, 'Allen Avenue', pg_catalog.now() - interval '25 hours'),
   ('62000000-0000-4000-8000-000000000005', '61000000-0000-4000-8000-000000000002', 'Private broken water pipe on Allen Avenue', 'A large private water leak from a broken pipe is flooding Allen Avenue this morning.', 'water_supply_leakage', 'submitted', false, 6.52440, 3.37920, 'Private location', pg_catalog.now() - interval '1 hour'),
   ('62000000-0000-4000-8000-000000000006', '61000000-0000-4000-8000-000000000002', 'Loose exposed electrical cable', 'A loose exposed electrical cable is sparking beside the market entrance today.', 'electricity_power', 'submitted', true, null, null, null, pg_catalog.now() - interval '1 hour'),
-  ('62000000-0000-4000-8000-000000000007', '61000000-0000-4000-8000-000000000002', 'No water delivery to nearby homes', 'Residents received no scheduled tanker water delivery at the community hall since yesterday.', 'water_supply_leakage', 'submitted', true, 6.52445, 3.37918, 'Allen Avenue', pg_catalog.now() - interval '1 hour');
+  ('62000000-0000-4000-8000-000000000007', '61000000-0000-4000-8000-000000000002', 'Intermittent water pressure in homes', 'Residents have experienced weak flow from household taps since last weekend despite scheduled utility service.', 'water_supply_leakage', 'submitted', true, 6.52445, 3.37918, 'Allen Avenue', pg_catalog.now() - interval '1 hour');
 
 select extensions.is(
   pg_catalog.has_table_privilege('authenticated', 'app_private.duplicate_detection_settings', 'SELECT'),
@@ -57,6 +57,7 @@ select extensions.throws_ok(
 );
 
 select pg_catalog.set_config('request.jwt.claim.sub', '', true);
+select pg_catalog.set_config('request.jwt.claims', '{"role":"authenticated"}', true);
 select extensions.throws_ok(
   $$select public.submit_report_with_duplicate_check('63000000-0000-4000-8000-000000000001', 'A nearby broken water pipe', 'water_supply_leakage'::public.report_category, 'A large water leak from a broken pipe is flooding Allen Avenue this morning.', 'Allen Avenue', 6.5245, 3.3791, '[]'::jsonb)$$,
   '42501',
@@ -165,6 +166,9 @@ select extensions.is(
   true,
   'missing coordinates remain null in the saved report'
 );
+
+reset role;
+
 select extensions.is(
   pg_catalog.pg_try_advisory_xact_lock(1449025537, 1),
   true,
