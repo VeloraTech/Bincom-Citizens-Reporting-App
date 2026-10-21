@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select extensions.plan(20);
+select extensions.plan(21);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -17,7 +17,8 @@ insert into public.reports (
   ('62000000-0000-4000-8000-000000000003', '61000000-0000-4000-8000-000000000002', 'Broken water pipe on Allen Avenue', 'A large water leak from a broken pipe is flooding Allen Avenue this morning.', 'water_supply_leakage', 'submitted', true, 6.70000, 3.50000, 'Far away', pg_catalog.now() - interval '1 hour'),
   ('62000000-0000-4000-8000-000000000004', '61000000-0000-4000-8000-000000000002', 'Broken water pipe on Allen Avenue', 'A large water leak from a broken pipe is flooding Allen Avenue this morning.', 'water_supply_leakage', 'submitted', true, 6.52440, 3.37920, 'Allen Avenue', pg_catalog.now() - interval '25 hours'),
   ('62000000-0000-4000-8000-000000000005', '61000000-0000-4000-8000-000000000002', 'Private broken water pipe on Allen Avenue', 'A large private water leak from a broken pipe is flooding Allen Avenue this morning.', 'water_supply_leakage', 'submitted', false, 6.52440, 3.37920, 'Private location', pg_catalog.now() - interval '1 hour'),
-  ('62000000-0000-4000-8000-000000000006', '61000000-0000-0000-0000-000000000002', 'Loose exposed electrical cable', 'A loose exposed electrical cable is sparking beside the market entrance today.', 'electricity_power', 'submitted', true, null, null, null, pg_catalog.now() - interval '1 hour');
+  ('62000000-0000-4000-8000-000000000006', '61000000-0000-0000-0000-000000000002', 'Loose exposed electrical cable', 'A loose exposed electrical cable is sparking beside the market entrance today.', 'electricity_power', 'submitted', true, null, null, null, pg_catalog.now() - interval '1 hour'),
+  ('62000000-0000-4000-8000-000000000007', '61000000-0000-0000-0000-000000000002', 'No water delivery to nearby homes', 'Residents received no scheduled tanker water delivery at the community hall since yesterday.', 'water_supply_leakage', 'submitted', true, 6.52445, 3.37918, 'Allen Avenue', pg_catalog.now() - interval '1 hour');
 
 select extensions.is(
   pg_catalog.has_table_privilege('authenticated', 'app_private.duplicate_detection_settings', 'SELECT'),
@@ -74,6 +75,16 @@ select extensions.is(
   )),
   1,
   'matching category, similar text, nearby coordinates, and recent time identify one candidate'
+);
+select extensions.is(
+  pg_catalog.jsonb_array_length(app_private.find_potential_duplicate_reports(
+    'No water delivery to nearby homes',
+    'Residents received no scheduled tanker water delivery at the community hall since yesterday.',
+    'water_supply_leakage'::public.report_category,
+    6.5245, 3.3791
+  )),
+  0,
+  'a nearby incident with a distinct description is not suggested solely because of proximity/category'
 );
 select extensions.is(
   app_private.find_potential_duplicate_reports(

@@ -1,19 +1,58 @@
 # Initial duplicate-incident detection
 
-## Findings before implementation
+## Behavior
 
-- New reports are submitted through `public.submit_report_with_media(...)` from `www/js/supabase.js`; it atomically inserts the public report and its media metadata and returns the report UUID. The RPC is `SECURITY INVOKER`, checks `auth.uid()`, validates attachment count/path, and relies on existing RLS/grants.
-- Public feed visibility is `reports.is_public = true`; reporter-owned private reports remain visible only to their owner. Public incident fields are already selected by the feed. Media remains in the private bucket with signed URLs.
-- Report categories and coordinates already have database constraints. Reports without coordinates are valid. Resolution confirmations are a separate table/RPC and can transition a report to `resolved`; duplicate candidates must never be merged or change status.
-- The existing RPC return type is `uuid`; PostgreSQL cannot change a function's return type with `CREATE OR REPLACE`. The app therefore needs a backwards-compatible companion submission RPC/result contract rather than an in-place return-type change.
-- Current repository test commands cover JavaScript behavior; SQL regression tests use pgTAP. This environment has no `supabase`, `psql`, or `pg_prove` executable, so live SQL execution must not be claimed.
+Each new report submission calls `public.submit_report_with_duplicate_check(...)`. Before saving, the server searches recent **public** reports and returns up to five possible matches with the saved report ID. A result is a suggestion only: the app still submits the new report, and neither reports nor attachments are merged, deleted, republished, or assigned a different status. Resolution confirmations are untouched.
 
-## Proposed initial behavior
+The matching defaults are:
 
-Add a server-side, authenticated submission wrapper that serializes submissions with a transaction-scoped advisory lock, checks only recent **public** reports, returns candidate summaries alongside the newly created report ID, and delegates the actual report-plus-media write to the existing ownership/RLS-enforced RPC. The app will show potential matches after successful submission; reports and attachments remain separate and untouched.
+- **Category:** exact category match. Other categories are not considered compatible in this initial version.
+- **Time:** reports created within the previous 24 hours.
+- **Location:** at most 500 metres apart when both reports have valid coordinates, calculated using a spherical-distance formula. If either report has no coordinates, location is not used as a filter.
+- **Text:** title trigram similarity of at least 0.35 **or** description trigram similarity of at least 0.25, using PostgreSQL `pg_trgm`.
+- **Results:** highest text-similarity candidates first, maximum of five.
 
-Starting defaults to validate and document: exact category match, 24-hour time window, 500 m maximum distance when both reports have valid coordinates, and PostgreSQL trigram text similarity as supporting evidence. When the new report has no coordinates, matching can use same category, time, and text only; missing coordinates do not block submission. No automatic merge, publication/status change, notification, or external AI service is proposed.
+These intentionally broad defaults surface candidates rather than declaring that two reports are duplicates. False positives are possible, particularly when coordinates are missing or descriptions use common phrases. Users should review the suggestions and can still submit a distinct incident.
 
-## Checkpoint status
+## Security and concurrency
 
-This document is the pre-implementation findings checkpoint. Next: review all relevant current migrations and policies; implement the migration, tests, and client integration in small tested increments; push each recoverable checkpoint. No database has been changed or deployed.
+The `app_private` schema contains the single-row threshold settings and matching helper. The settings table has forced RLS and no grants to API roles; the matcher is a narrowly scoped `SECURITY DEFINER` function owned by `postgres`, requires `auth.uid()`, filters to `is_public = true`, and returns only public report summary fields. Keep `app_private` out of PostgREST's exposed schemas.
+
+The public wrapper is `SECURITY INVOKER` and delegates the actual report/media insert to the existing `submit_report_with_media` RPC. That existing function retains caller identity, media validation, ownership paths, and attachment limits. No RLS policy is disabled or broadened. A transaction-scoped advisory lock is acquired before matching; a report-table insert trigger uses the same lock to serialize inserts with the candidate check. Concurrent calls through the app wrapper therefore wait, then the later submission can see the earlier committed report.
+
+Direct SQL/admin inserts do not produce duplicate suggestions; they are serialized by the trigger but bypass the wrapper's candidate response. The supported app submission path is the new wrapper. Duplicate candidate relationships are not persisted in a separate table.
+
+## Configuration
+
+Only a database administrator can update `app_private.duplicate_detection_settings`. For example, adjust defaults with a privileged SQL session:
+
+```sql
+update app_private.duplicate_detection_settings
+set time_window = interval '48 hours',
+    max_distance_meters = 750,
+    title_similarity_threshold = 0.40,
+    description_similarity_threshold = 0.30
+where singleton = true;
+```
+
+Constraints limit the window to 1 second–7 days, distance to 0–50 km, and similarity thresholds to 0–1. Choose values with local/community context in mind and evaluate false-positive and false-negative rates before changing production settings.
+
+## Migration and tests
+
+Apply `supabase/migrations/20261021000000_duplicate_incident_detection.sql` only after reconciling the target project's migration history and actual schema. It is additive: it installs `pg_trgm`, creates settings/helpers/trigger/RPC, and does not rewrite existing reports or data. The app requires this migration before using the new RPC; otherwise new submissions will fail with a missing-function error. Do not reset production or blindly deploy the migration.
+
+Regression tests are in `supabase/tests/duplicate_incident_detection.test.sql`. They cover near-text/spatial matches, incompatible category, excessive distance, outside-window and private lookalikes, matching with missing coordinates, submission without coordinates, separate row preservation, unauthenticated rejection, status/confirmation noninterference, and serialization guard presence. Existing media/RLS and resolution pgTAP suites remain part of the required regression set.
+
+Run:
+
+```bash
+npm run check
+supabase start
+supabase test db
+```
+
+The client check was run locally. This environment did not have `supabase`, `psql`, or `pg_prove`, so SQL/pgTAP and true parallel-session behavior were not run locally. CI is being used to validate the migration and pgTAP suite. For a true concurrency check, use two authenticated SQL sessions on a disposable local/staging database: keep Session A's transaction open after calling the wrapper, call it for a similar report in Session B, verify B blocks until A commits and then returns A's report as a candidate. Never run this test against production with fixture inserts.
+
+## Current rollout status
+
+The migration is present on the feature branch and has **not** been applied to the live Supabase project. Merge the PR, reconcile production migration history/schema, deploy the migration, then release the matching app build. Existing app versions cannot call the new RPC until upgraded; do not deploy the client release ahead of the database migration.
