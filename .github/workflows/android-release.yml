@@ -1,4 +1,4 @@
-name: Publish Android preview release
+name: Build Android preview release draft
 
 on:
   push:
@@ -89,11 +89,13 @@ jobs:
       - name: Prepare release asset
         run: cp platforms/android/app/build/outputs/apk/debug/app-debug.apk "WeSignal-${RELEASE_VERSION}-android-debug.apk"
 
-      - name: Create GitHub Release and upload APK
+      - name: Create draft GitHub Release and upload APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
             "WeSignal-${RELEASE_VERSION}-android-debug.apk#WeSignal Android preview APK (debug-signed)" \
             --title "WeSignal ${RELEASE_VERSION}" \
-            --notes "Installable Android preview build from the merged release commit. This APK is debug-signed for sideload testing, not a production/Google Play release. A stable release keystore is required for reliable in-place upgrades between future APKs. Source archives are available below."
+            --notes "Draft installable Android preview build from the merged release commit. Review this draft before publishing. This APK is debug-signed for sideload testing, not a production/Google Play release. A stable release keystore is required for reliable in-place upgrades between future APKs. Source archives are available below." \
+            --draft \
+            --verify-tag

@@ -1,7 +1,7 @@
 {
   "name": "bincom-citizens-reporting-app",
   "displayName": "WeSignal",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "A transparent mobile foundation for reporting and tracking community issues.",
   "main": "index.js",
   "scripts": {
