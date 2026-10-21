@@ -365,7 +365,7 @@
         }
         if (typeof onProgress === 'function') onProgress({ stage: 'saving', index: media.length, total: media.length, percent: 100 });
         rpcAttempted = true;
-        const submitted = await client.rpc('submit_report_with_media', {
+        const submitted = await client.rpc('submit_report_with_duplicate_check', {
           p_report_id: reportId,
           p_title: payload.title,
           p_category: payload.category,
@@ -385,7 +385,17 @@
             : '';
           return { data: null, error: new Error(`${details}${cleanupNote}`), mayHaveSubmitted };
         }
-        return { data: { id: submitted.data, media: reportMedia }, error: null, mayHaveSubmitted: false };
+        const saved = submitted.data && typeof submitted.data === 'object' ? submitted.data : {};
+        if (!saved.report_id) return { data: null, error: new Error('The report may have been saved, but its confirmation response was incomplete. Check My Reports before retrying.'), mayHaveSubmitted: true };
+        return {
+          data: {
+            id: saved.report_id,
+            media: reportMedia,
+            potentialDuplicates: Array.isArray(saved.potential_duplicates) ? saved.potential_duplicates : []
+          },
+          error: null,
+          mayHaveSubmitted: false
+        };
       } catch (error) {
         const cleanupError = await removeUnlinked(attemptedPaths);
         const message = error && error.message ? error.message : 'The media upload did not complete.';
