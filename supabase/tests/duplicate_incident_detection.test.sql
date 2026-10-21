@@ -47,7 +47,8 @@ select extensions.is(
 );
 
 set local role authenticated;
-select pg_catalog.set_config('request.jwt.claim.sub', '61000000-0000-4000-8000-000000000001', true);
+select pg_catalog.set_config('request.jwt.claim.sub', '', true);
+select pg_catalog.set_config('request.jwt.claims', '{"role":"authenticated"}', true);
 
 select extensions.throws_ok(
   $$select app_private.find_potential_duplicate_reports('Broken water pipe on Allen Avenue', 'A large water leak from a broken pipe is flooding Allen Avenue this morning.', 'water_supply_leakage'::public.report_category, 6.5244, 3.3792)$$,
@@ -56,8 +57,6 @@ select extensions.throws_ok(
   'missing identity cannot query potential public matches'
 );
 
-select pg_catalog.set_config('request.jwt.claim.sub', '', true);
-select pg_catalog.set_config('request.jwt.claims', '{"role":"authenticated"}', true);
 select extensions.throws_ok(
   $$select public.submit_report_with_duplicate_check('63000000-0000-4000-8000-000000000001', 'A nearby broken water pipe', 'water_supply_leakage'::public.report_category, 'A large water leak from a broken pipe is flooding Allen Avenue this morning.', 'Allen Avenue', 6.5245, 3.3791, '[]'::jsonb)$$,
   '42501',
