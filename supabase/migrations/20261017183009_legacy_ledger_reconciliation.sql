@@ -1,0 +1,2 @@
+-- Historical production ledger entry only. Its effects are maintained by the
+-- canonical migration 20261018000004_report_resolution_confirmations.sql.

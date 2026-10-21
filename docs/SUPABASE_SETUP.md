@@ -14,14 +14,16 @@ In the Supabase Dashboard, open **SQL Editor → New query**. Apply each file as
 | 4 | `supabase/migrations/20261018000001_report_media.sql` | Adds media metadata, a private Storage bucket and policies, timestamp triggers, and the authenticated atomic submission RPC. |
 | 5 | `supabase/migrations/20261018000002_auto_publish_submissions.sql` | Publishes new authenticated submissions immediately in the initial `submitted` status; keeps existing rows and ownership protections intact. |
 | 6 | `supabase/migrations/20261018000003_report_management.sql` | Adds owner-only edit/append-media RPCs. |
-| 7 | `supabase/migrations/20261017182718_repair_launch_blocker_schema_drift_20261018000006.sql` | Idempotent forward repair for deployments missing the report confirmation counter or the non-recursive media INSERT policy. |
-| 8 | `supabase/migrations/20261017183009_report_resolution_confirmations.sql` | Adds private per-user confirmations and an atomic RPC that resolves public reports after three distinct non-reporter confirmations. |
-| 9 | `supabase/migrations/20261017183019_fix_report_media_policy_recursion.sql` | Replaces the recursive Storage-object existence check in the `report_media` INSERT policy with a narrowly scoped helper; preserves existing read and ownership checks. |
-| 10 | `supabase/migrations/20261017195436_public_confirmation_summary.sql` | Adds a public-report-only RPC that counts persisted community confirmation rows and returns only the current caller's confirmation/reporter flags, not confirmer identities. |
-| 11 | `supabase/migrations/20261017200541_public_incident_realtime_notifications.sql` | Adds public reports to Supabase Realtime for in-app alerts while a client is open and connected; existing report SELECT RLS remains in force. |
+| 7 | `supabase/migrations/20261018000004_report_resolution_confirmations.sql` | Adds private per-user confirmations and an atomic RPC that resolves public reports after three distinct non-reporter confirmations. |
+| 8 | `supabase/migrations/20261018000005_fix_report_media_policy_recursion.sql` | Replaces the recursive Storage-object existence check in the `report_media` INSERT policy with a narrowly scoped helper; preserves existing read and ownership checks. |
+| 9 | `supabase/migrations/20261018000006_repair_launch_blocker_schema_drift.sql` | Idempotent forward repair for deployments missing the report confirmation counter or the non-recursive media INSERT policy. |
+| 10 | `supabase/migrations/20261018000007_public_confirmation_summary.sql` | Adds a public-report-only RPC that counts persisted community confirmation rows and returns only the current caller's confirmation/reporter flags, not confirmer identities. |
+| 11 | `supabase/migrations/20261018000008_public_incident_realtime_notifications.sql` | Adds public reports to Supabase Realtime for in-app alerts while a client is open and connected; existing report SELECT RLS remains in force. |
 | 12 | `supabase/migrations/20261021000000_duplicate_incident_detection.sql` | Adds configurable, server-side possible-duplicate suggestions to authenticated submissions; reports are not merged. |
 
 If migrations 1 and 2 have already been applied, do not reapply them; apply only missing versions in order. Keep a record of applied versions if managing SQL manually. Before applying any migration that may have been run manually, reconcile actual effects with the Supabase migration ledger; never mark a version applied without verifying every effect. Do not reset production or delete existing data.
+
+Five legacy production ledger IDs (`20261017182718`, `20261017183009`, `20261017183019`, `20261017195436`, `20261017200541`) predate the canonical migration timestamps and were applied in a different order. The matching `*_legacy_ledger_reconciliation.sql` files are intentionally no-op markers so the CLI recognizes those recorded IDs; canonical, idempotent migrations 7–11 remain in dependency order and reapply their verified effects. Do not replace these markers with copied historical SQL or reorder the canonical migrations.
 
 Migration 11 enables a live in-app alert for a new public incident while WeSignal is open and connected. It is not Android push notification delivery and does not notify a device when the app is closed or offline; that requires a push provider, device registration, and credentials.
 

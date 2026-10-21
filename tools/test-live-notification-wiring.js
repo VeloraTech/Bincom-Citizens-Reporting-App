@@ -40,7 +40,7 @@ assert.equal(received, null, 'private report is ignored');
 
 const app = fs.readFileSync('www/js/app.js', 'utf8');
 const html = fs.readFileSync('www/index.html', 'utf8');
-const migration = fs.readFileSync('supabase/migrations/20261017200541_public_incident_realtime_notifications.sql', 'utf8');
+const migration = fs.readFileSync('supabase/migrations/20261018000008_public_incident_realtime_notifications.sql', 'utf8');
 assert.match(app, /subscribeToPublicIncidentNotifications\(\);/);
 assert.match(html, /id="new-incident-notification"[^>]*role="status"[^>]*aria-live="polite"/);
 assert.match(migration, /alter publication supabase_realtime add table public\.reports/i);

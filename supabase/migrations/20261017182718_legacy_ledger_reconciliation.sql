@@ -1,0 +1,2 @@
+-- Historical production ledger entry only. Its repair effects are maintained
+-- by the canonical, idempotent migration 20261018000006_repair_launch_blocker_schema_drift.sql.

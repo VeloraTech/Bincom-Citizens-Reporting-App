@@ -1,0 +1,2 @@
+-- Historical production ledger entry only. Its effects are maintained by the
+-- canonical migration 20261018000008_public_incident_realtime_notifications.sql.
