@@ -687,7 +687,14 @@
       } else {
         result = await window.BincomData.createReport(payload, attachments, (progress) => { if (progress.stage === 'upload') { const text = `Uploading attachment ${progress.index} of ${progress.total} · ${progress.percent}%`; $('#report-progress-state').textContent = text; window.ReportMedia.setStatus(text, 'progress'); } else { $('#report-progress-state').textContent = 'Saving report…'; window.ReportMedia.setStatus('Saving report details…', 'progress'); } });
       }
-      if (result.error) { formMessage(`Could not save changes: ${result.error.message}`, 'error'); $('#report-progress-state').textContent = 'Not saved'; return; }
+      if (result.error) {
+        const message = result.mayHaveSubmitted
+          ? `We could not confirm whether the report was saved. Check My Reports before retrying. ${result.error.message}`
+          : `Could not save changes: ${result.error.message}`;
+        formMessage(message, 'error');
+        $('#report-progress-state').textContent = result.mayHaveSubmitted ? 'Save outcome unknown' : 'Not saved';
+        return;
+      }
       const wasEditing = Boolean(editingReportId);
       if (wasEditing) {
         const feedIndex = incidents.findIndex((report) => report.id === payload.id);

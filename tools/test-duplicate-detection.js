@@ -45,6 +45,7 @@ vm.runInNewContext(fs.readFileSync('www/js/supabase.js', 'utf8'), context, { fil
   assert.match(app, /function reportSubmissionMessage\(matches\)/);
   assert.match(app, /remains a separate report/);
   assert.match(app, /result\.data && result\.data\.potentialDuplicates/);
+  assert.match(app, /We could not confirm whether the report was saved\. Check My Reports before retrying\./);
   assert.match(app, /n\.textContent=text/);
 
   const migration = fs.readFileSync('supabase/migrations/20261021000000_duplicate_incident_detection.sql', 'utf8');
