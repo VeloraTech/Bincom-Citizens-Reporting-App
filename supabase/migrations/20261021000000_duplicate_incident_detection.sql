@@ -85,7 +85,7 @@ begin
           and p_longitude between -180 and 180
           and r.latitude between -90 and 90
           and r.longitude between -180 and 180
-        then 6371000.0 * 2.0 * pg_catalog.asin(pg_catalog.sqrt(pg_catalog.least(
+        then 6371000.0 * 2.0 * pg_catalog.asin(pg_catalog.sqrt(least(
           1.0,
           pg_catalog.power(pg_catalog.sin(pg_catalog.radians(r.latitude - p_latitude) / 2.0), 2)
           + pg_catalog.cos(pg_catalog.radians(p_latitude))
