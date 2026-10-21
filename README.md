@@ -8,7 +8,7 @@
 
 ## Download
 
-The latest preview is [WeSignal v0.1.18](https://github.com/VeloraTech/Bincom-Citizens-Reporting-App/releases/tag/v0.1.18). Its APK is debug-signed for sideload testing; it is not a Play Store release and does not use a stable production signing key. See [Releases](https://github.com/VeloraTech/Bincom-Citizens-Reporting-App/releases) for the APK and source archives.
+The latest preview is [WeSignal v0.1.19](https://github.com/VeloraTech/Bincom-Citizens-Reporting-App/releases/tag/v0.1.19). Its APK is debug-signed for sideload testing; it is not a Play Store release and does not use a stable production signing key. See [Releases](https://github.com/VeloraTech/Bincom-Citizens-Reporting-App/releases) for the APK and source archives.
 
 ## Demo
 
