@@ -566,6 +566,12 @@
     finally { button.disabled = false; }
   }
   function formMessage(text,type){const n=$('#form-message');n.textContent=text;n.className=type?`form-message ${type}`:'form-message';}
+  function reportSubmissionMessage(matches) {
+    const candidates = Array.isArray(matches) ? matches.slice(0, 5) : [];
+    if (!candidates.length) return 'Report submitted successfully. It is now visible in Explore; any optional GPS coordinates are public too.';
+    const summaries = candidates.map((item) => `“${String(item && item.title || 'Similar incident')}” (${date(item && item.created_at)})`);
+    return `Report submitted successfully and remains a separate report. We found ${candidates.length} possible similar ${candidates.length === 1 ? 'incident' : 'incidents'}: ${summaries.join('; ')}. Please review them in Explore.`;
+  }
   function markReportDraft() {
     $('#report-progress-state').textContent = 'Not submitted';
     if ($('#form-message').classList.contains('success')) formMessage('', '');
@@ -681,7 +687,14 @@
       } else {
         result = await window.BincomData.createReport(payload, attachments, (progress) => { if (progress.stage === 'upload') { const text = `Uploading attachment ${progress.index} of ${progress.total} · ${progress.percent}%`; $('#report-progress-state').textContent = text; window.ReportMedia.setStatus(text, 'progress'); } else { $('#report-progress-state').textContent = 'Saving report…'; window.ReportMedia.setStatus('Saving report details…', 'progress'); } });
       }
-      if (result.error) { formMessage(`Could not save changes: ${result.error.message}`, 'error'); $('#report-progress-state').textContent = 'Not saved'; return; }
+      if (result.error) {
+        const message = result.mayHaveSubmitted
+          ? `We could not confirm whether the report was saved. Check My Reports before retrying. ${result.error.message}`
+          : `Could not save changes: ${result.error.message}`;
+        formMessage(message, 'error');
+        $('#report-progress-state').textContent = result.mayHaveSubmitted ? 'Save outcome unknown' : 'Not saved';
+        return;
+      }
       const wasEditing = Boolean(editingReportId);
       if (wasEditing) {
         const feedIndex = incidents.findIndex((report) => report.id === payload.id);
@@ -689,7 +702,7 @@
         renderIncidents();
       }
       resetReportEditor();
-      formMessage(wasEditing ? 'Report updated successfully.' : 'Report submitted successfully. It is now visible in Explore; any optional GPS coordinates are public too.', 'success');
+      formMessage(wasEditing ? 'Report updated successfully.' : reportSubmissionMessage(result.data && result.data.potentialDuplicates), 'success');
       $('#report-progress-state').textContent = wasEditing ? 'Changes saved' : 'Reported · public';
       if (wasEditing) showScreen('reports');
     } catch (error) { formMessage(`Could not save the report: ${error && error.message ? error.message : 'Check your connection and try again.'}`, 'error'); }
