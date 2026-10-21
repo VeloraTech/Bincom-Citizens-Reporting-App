@@ -27,7 +27,27 @@ jobs:
           version: latest
       - name: Validate migration SQL against local Supabase
         run: |
-          supabase start
+          START_LOG="${RUNNER_TEMP}/supabase-start.log"
+          if ! supabase start >"$START_LOG" 2>&1; then
+            echo "Supabase local stack failed to start; startup output follows with credentials redacted." >&2
+            python3 - "$START_LOG" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          output = Path(sys.argv[1]).read_text(errors="replace")
+          patterns = [
+              r"\bsb_(?:publishable|secret)_[A-Za-z0-9_-]+\b",
+              r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b",
+              r"\bpostgres(?:ql)?://[^:\s]+:[^@\s]+@[^\s]+",
+          ]
+          for pattern in patterns:
+              output = re.sub(pattern, "[REDACTED]", output, flags=re.IGNORECASE)
+          sys.stderr.write(output)
+          PY
+            exit 1
+          fi
+          echo "Supabase local stack started; generated API keys were suppressed from logs."
           supabase db lint --local --fail-on error
           supabase test db
           supabase stop --no-backup
