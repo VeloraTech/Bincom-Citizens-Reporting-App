@@ -1,6 +1,6 @@
 # WeSignal location privacy model
 
-Migration `20261022000000_location_privacy.sql` separates precise report locations from public incident data without deleting reports.
+Migration `20261022084558_location_privacy_20261022.sql` separates precise report locations from public incident data without deleting reports. It has been applied to the connected WeSignal Supabase project (`wztpwcuxwimzpgdwswba`) and is recorded in the live migration ledger as `location_privacy_20261022`.
 
 ## Data boundaries
 
