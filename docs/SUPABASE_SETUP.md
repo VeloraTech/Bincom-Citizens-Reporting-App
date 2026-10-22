@@ -21,6 +21,7 @@ In the Supabase Dashboard, open **SQL Editor → New query**. Apply each file as
 | 11 | `supabase/migrations/20261018000008_public_incident_realtime_notifications.sql` | Adds public reports to Supabase Realtime for in-app alerts while a client is open and connected; existing report SELECT RLS remains in force. |
 | 12 | `supabase/migrations/20261021000000_duplicate_incident_detection.sql` | Adds configurable, server-side possible-duplicate suggestions to authenticated submissions; reports are not merged. |
 | 13 | `supabase/migrations/20261022084558_location_privacy_20261022.sql` | Moves precise locations behind owner RLS and exposes only category-aware approximate centers/radii to public feed, detail, and Realtime paths. Applied to WeSignal project `wztpwcuxwimzpgdwswba`. |
+| 14 | `supabase/migrations/20261022084559_location_privacy_index_20261022.sql` | Adds the owner-lookup index for the protected precise-location RLS predicate. Applied to WeSignal project `wztpwcuxwimzpgdwswba`. |
 
 If migrations 1 and 2 have already been applied, do not reapply them; apply only missing versions in order. Keep a record of applied versions if managing SQL manually. Before applying any migration that may have been run manually, reconcile actual effects with the Supabase migration ledger; never mark a version applied without verifying every effect. Do not reset production or delete existing data.
 
