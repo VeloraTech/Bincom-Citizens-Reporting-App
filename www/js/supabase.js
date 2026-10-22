@@ -253,7 +253,7 @@
     async signOut() { return client ? client.auth.signOut() : { error: unavailable() }; },
     async listPublicReports() {
       if (!client) return { data: [], error: unavailable() };
-      return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude,resolution_confirmations')
+      return client.from('reports').select('id,title,category,status,description,created_at,public_location_label,public_latitude,public_longitude,public_location_radius_meters,resolution_confirmations')
         .eq('is_public', true).order('created_at', { ascending: false });
     },
     subscribeToPublicIncidentInserts(callback) {
@@ -268,7 +268,7 @@
     },
     async getPublicReport(id) {
       if (!client) return { data: null, error: unavailable() };
-      return client.from('reports').select('id,title,category,status,description,created_at,location_label,latitude,longitude,resolution_confirmations')
+      return client.from('reports').select('id,title,category,status,description,created_at,public_location_label,public_latitude,public_longitude,public_location_radius_meters,resolution_confirmations')
         .eq('id', id).eq('is_public', true).maybeSingle();
     },
     listReportMedia,
@@ -277,8 +277,7 @@
       const current = await client.auth.getSession();
       if (current.error) return { data: [], error: current.error };
       if (!current.data.session) return { data: [], error: new Error('Sign in is required to view your reports.') };
-      return client.from('reports').select('id,title,description,category,status,created_at,location_label,latitude,longitude')
-        .eq('reporter_id', current.data.session.user.id).order('created_at', { ascending: false });
+      return client.rpc('list_own_reports_with_private_locations');
     },
     async updateReport(payload) {
       if (!client) return { data: null, error: unavailable() };

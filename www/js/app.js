@@ -25,11 +25,22 @@
     const lon = longitude.toFixed(5);
     return { latitude, longitude, label: `${lat}, ${lon}` };
   }
+  function publicCoordinates(item) {
+    const point = coordinates(item && item.public_latitude, item && item.public_longitude);
+    if (!point) return null;
+    const radius = Number(item && item.public_location_radius_meters);
+    return { ...point, radius: Number.isFinite(radius) && radius > 0 ? radius : null, label: item && item.public_location_label || 'Approximate area' };
+  }
+  function publicLocationText(item, point) {
+    const label = item && item.public_location_label || (point && point.label) || '';
+    return label && point && point.radius ? `${label} · within about ${point.radius >= 1000 ? `${(point.radius / 1000).toFixed(1)} km` : `${point.radius} m`}` : label;
+  }
   function mapPinLink(item) {
-    const point = coordinates(item && item.latitude, item && item.longitude);
+    const point = publicCoordinates(item);
     if (!point) return '';
-    const label = escapeHtml(item && item.location_label || '');
-    return `<button class="location-map-link" type="button" data-map-pin data-lat="${point.latitude}" data-lon="${point.longitude}" data-map-label="${label}">View pin in app map</button>`;
+    const label = escapeHtml(item && item.public_location_label || 'Approximate area');
+    const radius = point.radius ? ` data-map-radius="${point.radius}"` : '';
+    return `<button class="location-map-link" type="button" data-map-pin data-lat="${point.latitude}" data-lon="${point.longitude}"${radius} data-map-label="${label}">View approximate area</button>`;
   }
   function updateLocationMapLink() {
     const buttonLabel = $('#location-map-button-text');
@@ -291,15 +302,15 @@
     const query = searchQuery;
     const rows = incidents.filter((item) => {
       const inCategory = activeFilter === 'all' || item.category === activeFilter;
-      const haystack = [item.title, item.description, item.location_label, labels[item.category] || item.category, statuses[item.status] || item.status].join(' ').toLowerCase();
+      const haystack = [item.title, item.description, item.public_location_label, labels[item.category] || item.category, statuses[item.status] || item.status].join(' ').toLowerCase();
       return inCategory && (!query || haystack.includes(query));
     });
     $('#feed-result-count').textContent = incidents.length ? `${rows.length} of ${incidents.length} public ${incidents.length === 1 ? 'incident' : 'incidents'}` : '';
     list.innerHTML = rows.map((item) => {
       const category = escapeHtml(labels[item.category] || item.category || 'Incident');
       const status = escapeHtml(statuses[item.status] || item.status || 'Published');
-      const point = coordinates(item.latitude, item.longitude);
-      const locationText = item.location_label || (point && point.label);
+      const point = publicCoordinates(item);
+      const locationText = publicLocationText(item, point);
       const location = locationText ? `<p class="feed-card-location"><span aria-hidden="true">⌖</span>${escapeHtml(locationText)}</p>${point ? mapPinLink(item) : ''}` : '';
       const created = escapeHtml(item.created_at || '');
       return `<li class="feed-incident-item"><article class="feed-incident-card"><div class="feed-card-meta"><span class="feed-category-chip">${category}</span><time datetime="${created}">${escapeHtml(relativeDate(item.created_at))}</time><span class="feed-status-chip">${status}</span></div><h3>${escapeHtml(item.title)}</h3>${location}<p class="feed-card-description">${escapeHtml(item.description || '')}</p>${renderMediaMarkup(incidentMedia[item.id], 'feed')}<button class="feed-details-button" type="button" data-incident="${escapeHtml(item.id)}">View details <span aria-hidden="true">→</span></button></article></li>`;
@@ -374,7 +385,7 @@
       const mediaUnavailable = Boolean(mediaResult.error || (mediaResult.failedCount && !mediaHtml));
       const mediaWarning = mediaResult.failedCount && mediaHtml
         ? 'Some attachments could not be loaded. The visible attachments are still available.' : '';
-      const point = coordinates(incident.latitude, incident.longitude);
+      const point = publicCoordinates(incident);
       target.innerHTML = window.WeSignalIncidentDetailView.render({
         incident,
         summary: confirmationResult.error ? { error: true, errorMessage: serviceErrorText(confirmationResult.error) } : confirmationResult.data,

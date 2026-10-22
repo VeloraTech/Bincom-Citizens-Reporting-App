@@ -13,6 +13,7 @@
   let map = null;
   let tileLayer = null;
   let marker = null;
+  let accuracyCircle = null;
   let mode = 'select';
   let selectedPoint = null;
   let searchFeatures = [];
@@ -82,6 +83,7 @@
       map.removeLayer(marker);
       marker = null;
     }
+    if (accuracyCircle) { map.removeLayer(accuracyCircle); accuracyCircle = null; }
     marker = window.L.marker([point.latitude, point.longitude], { draggable: Boolean(draggable) }).addTo(map);
     if (draggable) {
       marker.on('dragend', (event) => {
@@ -145,7 +147,7 @@
     });
   }
 
-  function openMarker(latitude, longitude, label) {
+  function openMarker(latitude, longitude, label, radius) {
     const point = validPoint(latitude, longitude);
     if (!point) return;
     mode = 'view';
@@ -159,10 +161,18 @@
     openModal();
     window.requestAnimationFrame(() => {
       if (!map) return;
-      placeMarker(point, false);
-      map.setView([point.latitude, point.longitude], 15);
+      if (marker) { map.removeLayer(marker); marker = null; }
+      if (accuracyCircle) { map.removeLayer(accuracyCircle); accuracyCircle = null; }
+      const radiusMeters = Number(radius);
+      if (Number.isFinite(radiusMeters) && radiusMeters > 0 && typeof window.L.circle === 'function') {
+        accuracyCircle = window.L.circle([point.latitude, point.longitude], { radius: radiusMeters, color: '#0057C2', fillColor: '#7EA7E8', fillOpacity: 0.2, weight: 2 }).addTo(map);
+        map.fitBounds(accuracyCircle.getBounds(), { padding: [24, 24], maxZoom: 15 });
+      } else {
+        placeMarker(point, false);
+        map.setView([point.latitude, point.longitude], 15);
+      }
       map.invalidateSize({ pan: false });
-      setStatus(label ? `${label} · ${displayPoint(point)}` : displayPoint(point));
+      setStatus(label ? `${label}${Number.isFinite(radiusMeters) && radiusMeters > 0 ? ` · within about ${radiusMeters >= 1000 ? `${(radiusMeters / 1000).toFixed(1)} km` : `${radiusMeters} m`}` : ''}` : 'Approximate incident area');
     });
   }
 
@@ -313,7 +323,7 @@
       if (pinButton) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        openMarker(pinButton.dataset.lat, pinButton.dataset.lon, pinButton.dataset.mapLabel || '');
+        openMarker(pinButton.dataset.lat, pinButton.dataset.lon, pinButton.dataset.mapLabel || '', pinButton.dataset.mapRadius);
         return;
       }
       if (target.closest('#open-location-map')) {

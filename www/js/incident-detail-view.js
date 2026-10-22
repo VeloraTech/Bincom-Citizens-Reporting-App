@@ -93,8 +93,8 @@
     const statusLabel = options.statusLabel || incident.status || 'Published';
     const media = mediaMarkup(options.mediaHtml, options.mediaState);
     const reportWarning = options.reportWarning ? `<p class="detail-inline-warning" role="status">${escapeHtml(options.reportWarning)}</p>` : '';
-    const coordinates = point ? `<span class="detail-location-coordinates">${escapeHtml(point.label)}</span>` : '';
-    const locationText = incident.location_label || (point && point.label) || '';
+    const coordinates = point ? `<span class="detail-location-coordinates">${escapeHtml(point.label)}${point.radius ? ` · within about ${point.radius >= 1000 ? `${(point.radius / 1000).toFixed(1)} km` : `${point.radius} m`}` : ''}</span>` : '';
+    const locationText = incident.public_location_label || incident.location_label || (point && point.label) || '';
     const locationActions = options.locationActionHtml || '';
     const locationMarkup = `<section class="detail-card detail-location" aria-labelledby="detail-location-title">
       <div class="detail-section-heading"><span class="detail-section-icon" aria-hidden="true">⌖</span><div><h3 id="detail-location-title">Incident location</h3><p>${locationText ? escapeHtml(locationText) : 'Location not provided'}</p>${coordinates}</div></div>

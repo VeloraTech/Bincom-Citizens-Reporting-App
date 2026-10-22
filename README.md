@@ -20,7 +20,7 @@ The latest preview is [WeSignal v0.1.19](https://github.com/VeloraTech/Bincom-Ci
 
 ## What works
 
-- Browse real published incidents, filter by category, and open incident details. Feed failures do not silently substitute sample reports.
+- Browse real published incidents, filter by category, and open incident details. Feed failures do not silently substitute sample reports. Public incident locations use an approximate area and explicit radius; precise coordinates are owner-scoped.
 - Create reports with title, category, description, optional location, and up to three image/video attachments. New submissions are published with the initial **Reported** status.
 - Use the interactive map to place or adjust a pin, search for an address or landmark, or request the device’s current location. Address search and device GPS use separate services; the limits and known reliability caveats are below.
 - Upload report media to a private Supabase Storage bucket. The app and database enforce ownership, private media access, a 25 MiB per-file limit, and a maximum of three attachments.
