@@ -266,6 +266,14 @@
           </section>
           <aside class="report-privacy-note"><span class="report-privacy-icon" aria-hidden="true">i</span><p><strong>Public after submission</strong>After a successful submission, the report and any optional GPS coordinates are visible to everyone in Explore.</p></aside>
           <div id="form-message" class="form-message" role="alert" aria-live="polite"></div>
+          <aside id="duplicate-decision" class="duplicate-decision" role="status" aria-live="polite" hidden>
+            <strong>Possible similar report</strong>
+            <p id="duplicate-decision-copy"></p>
+            <div class="duplicate-decision-actions">
+              <button id="duplicate-review" class="secondary-button" type="button">Review in Explore</button>
+              <button id="duplicate-keep" class="primary-button" type="button">Keep both reports</button>
+            </div>
+          </aside>
           <button id="report-submit-button" class="primary-button full-width report-submit-button" type="submit"><span aria-hidden="true">↑</span> Submit incident report</button>
           <p class="report-submit-note">Review your details before submitting. You can browse public reports without an account.</p>
         </form>

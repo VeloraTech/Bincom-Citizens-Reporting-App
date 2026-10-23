@@ -44,6 +44,10 @@ vm.runInNewContext(fs.readFileSync('www/js/supabase.js', 'utf8'), context, { fil
   const app = fs.readFileSync('www/js/app.js', 'utf8');
   assert.match(app, /function reportSubmissionMessage\(matches\)/);
   assert.match(app, /remains a separate report/);
+  assert.match(app, /function showDuplicateDecision\(matches\)/);
+  assert.match(app, /duplicate-decision/);
+  assert.match(app, /Your report remains a separate community report/);
+  assert.match(app, /showScreen\('feed'\); loadFeed\(\)/);
   assert.match(app, /result\.data && result\.data\.potentialDuplicates/);
   assert.match(app, /We could not confirm whether the report was saved\. Check My Reports before retrying\./);
   assert.match(app, /n\.textContent=text/);

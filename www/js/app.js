@@ -583,8 +583,20 @@
     const summaries = candidates.map((item) => `“${String(item && item.title || 'Similar incident')}” (${date(item && item.created_at)})`);
     return `Report submitted successfully and remains a separate report. We found ${candidates.length} possible similar ${candidates.length === 1 ? 'incident' : 'incidents'}: ${summaries.join('; ')}. Please review them in Explore.`;
   }
+  function showDuplicateDecision(matches) {
+    const candidates = Array.isArray(matches) ? matches.slice(0, 3) : [];
+    const panel = $('#duplicate-decision');
+    if (!panel || !candidates.length) return;
+    const first = candidates[0];
+    const summary = candidates.length === 1
+      ? `“${String(first && first.title || 'Similar incident')}” may describe the same event. Your report is saved and remains visible in My Reports.`
+      : `${candidates.length} nearby reports may describe the same event. Your report is saved and remains visible in My Reports.`;
+    $('#duplicate-decision-copy').textContent = `${summary} Choose whether to review them or keep both reports as separate community submissions.`;
+    panel.hidden = false;
+  }
   function markReportDraft() {
     $('#report-progress-state').textContent = 'Not submitted';
+    $('#duplicate-decision').hidden = true;
     if ($('#form-message').classList.contains('success')) formMessage('', '');
   }
   function setReportCategory(value) {
@@ -715,6 +727,7 @@
       resetReportEditor();
       formMessage(wasEditing ? 'Report updated successfully.' : reportSubmissionMessage(result.data && result.data.potentialDuplicates), 'success');
       $('#report-progress-state').textContent = wasEditing ? 'Changes saved' : 'Reported · public';
+      if (!wasEditing) showDuplicateDecision(result.data && result.data.potentialDuplicates);
       if (wasEditing) showScreen('reports');
     } catch (error) { formMessage(`Could not save the report: ${error && error.message ? error.message : 'Check your connection and try again.'}`, 'error'); }
     finally { window.ReportMedia.setBusy(false); button.disabled = false; if (!editingReportId) button.innerHTML = '<span aria-hidden="true">↑</span> Submit incident report'; }
@@ -851,6 +864,8 @@
   $('#account-new-report').addEventListener('click', () => showScreen('report'));
   $('#account-explore').addEventListener('click', () => showScreen('feed'));
   $('#detail-content').addEventListener('click', (event) => { const button = event.target.closest('button'); if (!button) return; if (button.hasAttribute('data-refresh-detail') && currentDetailId) { openDetail(currentDetailId); return; } if (button.hasAttribute('data-confirm-report')) submitResolutionConfirmation(button.dataset.confirmReport, button); });
+  $('#duplicate-keep').addEventListener('click', () => { $('#duplicate-decision').hidden = true; formMessage('Your report remains a separate community report.', 'success'); });
+  $('#duplicate-review').addEventListener('click', () => { $('#duplicate-decision').hidden = true; showScreen('feed'); loadFeed(); });
   $('#startup-retry').addEventListener('click', initializeStartup);
   $('#startup-guest').addEventListener('click', () => showApplication('feed'));
   $('#welcome-account').addEventListener('click', () => openAuth('welcome'));

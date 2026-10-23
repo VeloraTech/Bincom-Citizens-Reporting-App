@@ -387,6 +387,11 @@ body.report-screen-active .brand-lockup-icon { width: 34px; height: 34px; }
 .report-screen .form-message { margin: 0; padding: 0; font-size: 11px; }
 .report-screen .form-message.error { padding: 10px 11px; border-radius: 9px; color: #93000A; background: #FFDAD6; }
 .report-screen .form-message.success { padding: 10px 11px; border-radius: 9px; color: #174E35; background: #E5F3EA; }
+.duplicate-decision { padding: 11px; border: 1px solid #F0D58A; border-radius: 9px; color: #5C4400; background: #FFF8E5; font-size: 11px; line-height: 1.45; }
+.duplicate-decision strong { display: block; margin-bottom: 3px; color: #4A3600; font: 600 12px/1.3 "Hanken Grotesk", sans-serif; }
+.duplicate-decision p { margin: 0; }
+.duplicate-decision-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.duplicate-decision-actions button { min-height: 36px; padding: 7px 10px; border-radius: 8px; font-size: 10px; }
 .report-submit-button { min-height: 49px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 11px; color: #FFFFFF; background: #003D8E; box-shadow: 0 3px 9px rgb(0 61 142 / 18%); font: 600 13px/1.2 "Hanken Grotesk", sans-serif; }
 .report-submit-button:disabled { opacity: .7; }
 .report-submit-button > span:first-child { font-size: 18px; }
