@@ -23,6 +23,7 @@ In the Supabase Dashboard, open **SQL Editor → New query**. Apply each file as
 | 13 | `supabase/migrations/20261022084558_location_privacy_20261022.sql` | Moves precise locations behind owner RLS and exposes only category-aware approximate centers/radii to public feed, detail, and Realtime paths. Applied to WeSignal project `wztpwcuxwimzpgdwswba`. |
 | 14 | `supabase/migrations/20261022084706_location_privacy_index_20261022.sql` | Adds the owner-lookup index for the protected precise-location RLS predicate. Applied to WeSignal project `wztpwcuxwimzpgdwswba`. |
 | 15 | `supabase/migrations/20261022090218_location_privacy_fk_fix_20261022.sql` | Defers the private-location report foreign key so the submission trigger can capture coordinates during report insertion. Applied to WeSignal project `wztpwcuxwimzpgdwswba`. |
+| 16 | `supabase/migrations/20261024000000_community_location_radius_20261024.sql` | Narrows ordinary public location display to 300 m and sensitive categories to 800 m, then refreshes existing safe public coordinates. Applied to WeSignal project `wztpwcuxwimzpgdwswba`. |
 
 If migrations 1 and 2 have already been applied, do not reapply them; apply only missing versions in order. Keep a record of applied versions if managing SQL manually. Before applying any migration that may have been run manually, reconcile actual effects with the Supabase migration ledger; never mark a version applied without verifying every effect. Do not reset production or delete existing data.
 

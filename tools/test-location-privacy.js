@@ -5,6 +5,7 @@ const supabase = fs.readFileSync('www/js/supabase.js', 'utf8');
 const app = fs.readFileSync('www/js/app.js', 'utf8');
 const map = fs.readFileSync('www/js/map.js', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20261022084558_location_privacy_20261022.sql', 'utf8');
+const radiusMigration = fs.readFileSync('supabase/migrations/20261024000000_community_location_radius_20261024.sql', 'utf8');
 
 assert.match(supabase, /public_location_label,public_latitude,public_longitude,public_location_radius_meters/);
 assert.match(supabase, /rpc\('list_own_reports_with_private_locations'\)/);
@@ -24,4 +25,7 @@ assert.match(migration, /grant execute on function public\.list_own_reports_with
 assert.match(migration, /accidents_emergencies/);
 assert.match(migration, /crime_public_safety/);
 assert.match(migration, /civil_unrest_rioting/);
+assert.match(radiusMigration, /v_radius := 300/);
+assert.match(radiusMigration, /v_radius := 800/);
+assert.match(radiusMigration, /update public\.reports/);
 console.log('Location privacy adapter tests passed: public-safe fields, owner RPC, protected precise table, and radius map rendering.');

@@ -579,7 +579,7 @@
   function formMessage(text,type){const n=$('#form-message');n.textContent=text;n.className=type?`form-message ${type}`:'form-message';}
   function reportSubmissionMessage(matches) {
     const candidates = Array.isArray(matches) ? matches.slice(0, 5) : [];
-    if (!candidates.length) return 'Report submitted successfully. It is now visible in Explore; any optional GPS coordinates are public too.';
+    if (!candidates.length) return 'Report submitted successfully. It is now visible in Explore with an approximate public area; your precise location stays protected.';
     const summaries = candidates.map((item) => `“${String(item && item.title || 'Similar incident')}” (${date(item && item.created_at)})`);
     return `Report submitted successfully and remains a separate report. We found ${candidates.length} possible similar ${candidates.length === 1 ? 'incident' : 'incidents'}: ${summaries.join('; ')}. Please review them in Explore.`;
   }
