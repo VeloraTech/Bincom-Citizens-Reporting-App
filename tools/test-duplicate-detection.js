@@ -42,10 +42,16 @@ vm.runInNewContext(fs.readFileSync('www/js/supabase.js', 'utf8'), context, { fil
   assert.equal(result.data.potentialDuplicates[0].id, 'prior-1');
 
   const app = fs.readFileSync('www/js/app.js', 'utf8');
+  const supabase = fs.readFileSync('www/js/supabase.js', 'utf8');
   assert.match(app, /function reportSubmissionMessage\(matches\)/);
   assert.match(app, /remains a separate report/);
   assert.match(app, /function showDuplicateDecision\(matches\)/);
   assert.match(app, /duplicate-decision/);
+  assert.match(app, /linkDuplicateToPrimary/);
+  assert.match(app, /Your report is saved and linked to the primary incident/);
+  assert.match(app, /community_report_count/);
+  assert.match(app, /primary_incident_title/);
+  assert.match(supabase, /link_own_report_to_incident/);
   assert.match(app, /Your report remains a separate community report/);
   assert.match(app, /showScreen\('feed'\); loadFeed\(\)/);
   assert.match(app, /result\.data && result\.data\.potentialDuplicates/);
@@ -57,6 +63,8 @@ vm.runInNewContext(fs.readFileSync('www/js/supabase.js', 'utf8'), context, { fil
   assert.match(migration, /create trigger reports_serialize_insert/i);
   assert.match(migration, /r\.is_public = true/);
   assert.match(migration, /extensions\.similarity/);
+  assert.match(fs.readFileSync('supabase/migrations/20261024090353_primary_incident_linking_20261024.sql', 'utf8'), /report_relationships/);
+  assert.match(fs.readFileSync('supabase/migrations/20261024090353_primary_incident_linking_20261024.sql', 'utf8'), /link_own_report_to_incident/);
 
   console.log('Duplicate detection adapter tests passed: duplicate-aware RPC, saved ID, candidate result, text-safe feedback, and serialization/public-only SQL guards.');
 })().catch((error) => {

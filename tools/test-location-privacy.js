@@ -5,7 +5,7 @@ const supabase = fs.readFileSync('www/js/supabase.js', 'utf8');
 const app = fs.readFileSync('www/js/app.js', 'utf8');
 const map = fs.readFileSync('www/js/map.js', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20261022084558_location_privacy_20261022.sql', 'utf8');
-const radiusMigration = fs.readFileSync('supabase/migrations/20261024000000_community_location_radius_20261024.sql', 'utf8');
+const radiusMigration = fs.readFileSync('supabase/migrations/20261024084243_community_location_radius_20261024.sql', 'utf8');
 
 assert.match(supabase, /public_location_label,public_latitude,public_longitude,public_location_radius_meters/);
 assert.match(supabase, /rpc\('list_own_reports_with_private_locations'\)/);

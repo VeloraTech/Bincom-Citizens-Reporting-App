@@ -253,7 +253,7 @@
     async signOut() { return client ? client.auth.signOut() : { error: unavailable() }; },
     async listPublicReports() {
       if (!client) return { data: [], error: unavailable() };
-      return client.from('reports').select('id,title,category,status,description,created_at,public_location_label,public_latitude,public_longitude,public_location_radius_meters,resolution_confirmations')
+      return client.from('reports').select('id,title,category,status,description,created_at,public_location_label,public_latitude,public_longitude,public_location_radius_meters,resolution_confirmations,primary_report_id,community_report_count')
         .eq('is_public', true).order('created_at', { ascending: false });
     },
     subscribeToPublicIncidentInserts(callback) {
@@ -268,7 +268,7 @@
     },
     async getPublicReport(id) {
       if (!client) return { data: null, error: unavailable() };
-      return client.from('reports').select('id,title,category,status,description,created_at,public_location_label,public_latitude,public_longitude,public_location_radius_meters,resolution_confirmations')
+      return client.from('reports').select('id,title,category,status,description,created_at,public_location_label,public_latitude,public_longitude,public_location_radius_meters,resolution_confirmations,primary_report_id,community_report_count')
         .eq('id', id).eq('is_public', true).maybeSingle();
     },
     listReportMedia,
@@ -278,6 +278,10 @@
       if (current.error) return { data: [], error: current.error };
       if (!current.data.session) return { data: [], error: new Error('Sign in is required to view your reports.') };
       return client.rpc('list_own_reports_with_private_locations');
+    },
+    async linkReportToIncident(linkedReportId, primaryReportId) {
+      if (!client) return { data: null, error: unavailable() };
+      return client.rpc('link_own_report_to_incident', { p_linked_report_id: linkedReportId, p_primary_report_id: primaryReportId, p_relationship_type: 'community_report' });
     },
     async updateReport(payload) {
       if (!client) return { data: null, error: unavailable() };

@@ -1,6 +1,6 @@
 # WeSignal location privacy model
 
-Migration `20261022084558_location_privacy_20261022.sql` separates precise report locations from public incident data without deleting reports. It has been applied to the connected WeSignal Supabase project (`wztpwcuxwimzpgdwswba`) and is recorded in the live migration ledger as `location_privacy_20261022`. The follow-up migrations `20261022084706_location_privacy_index_20261022.sql` and `20261022090218_location_privacy_fk_fix_20261022.sql` support owner lookups and reliable location capture. Migration `20261024000000_community_location_radius_20261024.sql` narrows public community locations to a 300 m radius and sensitive locations to 800 m.
+Migration `20261022084558_location_privacy_20261022.sql` separates precise report locations from public incident data without deleting reports. It has been applied to the connected WeSignal Supabase project (`wztpwcuxwimzpgdwswba`) and is recorded in the live migration ledger as `location_privacy_20261022`. The follow-up migrations `20261022084706_location_privacy_index_20261022.sql` and `20261022090218_location_privacy_fk_fix_20261022.sql` support owner lookups and reliable location capture. Migration `20261024084243_community_location_radius_20261024.sql` narrows public community locations to a 300 m radius and sensitive locations to 800 m. Migration `20261024090353_primary_incident_linking_20261024.sql` preserves linked submissions while grouping them under a primary incident.
 
 ## Data boundaries
 

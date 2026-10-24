@@ -7,6 +7,7 @@
   let session = null; let activeFilter = 'all'; let incidents = []; let incidentMedia = Object.create(null); let feedRequest = 0; let detailRequest = 0; let currentDetailId = null; let searchQuery = ''; let returnScreen = 'report'; let authBusy = false;
   let myReports = []; let myReportsState = 'idle'; let reportsFilter = 'all'; let reportsRequest = 0; let editingReportId = null;
   let publicIncidentSubscription = null; let notificationHideTimer = null; const seenIncidentNotificationIds = new Set();
+  let pendingDuplicateReportId = null; let pendingDuplicateCandidates = [];
   let authResolved = false; let startupResolved = false; let startupBusy = false; let authSubscription = null; let pendingStartupAuth = null; let authMode = 'signin';
   const authCallbackPromises = new Map();
   let startupAuthCallbackError = '';
@@ -284,9 +285,10 @@
   }
   function renderFilters() {
     const el = $('#category-filters');
+    const primaryRows = incidents.filter((item) => !item.primary_report_id);
     const filters = ['all', ...Object.keys(labels)];
     el.innerHTML = filters.map((key) => {
-      const count = key === 'all' ? incidents.length : incidents.filter((item) => item.category === key).length;
+      const count = key === 'all' ? primaryRows.length : primaryRows.filter((item) => item.category === key).length;
       const label = key === 'all' ? 'All' : labels[key];
       return `<button class="filter-chip${activeFilter === key ? ' active' : ''}" type="button" data-filter="${key}" aria-pressed="${activeFilter === key}"><span>${label}</span><span class="feed-filter-count">${count}</span></button>`;
     }).join('');
@@ -299,13 +301,14 @@
   }
   function renderIncidents() {
     const list = $('#incident-list');
+    const primaryRows = incidents.filter((item) => !item.primary_report_id);
     const query = searchQuery;
-    const rows = incidents.filter((item) => {
+    const rows = primaryRows.filter((item) => {
       const inCategory = activeFilter === 'all' || item.category === activeFilter;
       const haystack = [item.title, item.description, item.public_location_label, labels[item.category] || item.category, statuses[item.status] || item.status].join(' ').toLowerCase();
       return inCategory && (!query || haystack.includes(query));
     });
-    $('#feed-result-count').textContent = incidents.length ? `${rows.length} of ${incidents.length} public ${incidents.length === 1 ? 'incident' : 'incidents'}` : '';
+    $('#feed-result-count').textContent = primaryRows.length ? `${rows.length} of ${primaryRows.length} public ${primaryRows.length === 1 ? 'incident' : 'incidents'}` : '';
     list.innerHTML = rows.map((item) => {
       const category = escapeHtml(labels[item.category] || item.category || 'Incident');
       const status = escapeHtml(statuses[item.status] || item.status || 'Published');
@@ -313,7 +316,9 @@
       const locationText = publicLocationText(item, point);
       const location = locationText ? `<p class="feed-card-location"><span aria-hidden="true">⌖</span>${escapeHtml(locationText)}</p>${point ? mapPinLink(item) : ''}` : '';
       const created = escapeHtml(item.created_at || '');
-      return `<li class="feed-incident-item"><article class="feed-incident-card"><div class="feed-card-meta"><span class="feed-category-chip">${category}</span><time datetime="${created}">${escapeHtml(relativeDate(item.created_at))}</time><span class="feed-status-chip">${status}</span></div><h3>${escapeHtml(item.title)}</h3>${location}<p class="feed-card-description">${escapeHtml(item.description || '')}</p>${renderMediaMarkup(incidentMedia[item.id], 'feed')}<button class="feed-details-button" type="button" data-incident="${escapeHtml(item.id)}">View details <span aria-hidden="true">→</span></button></article></li>`;
+      const communityCount = Math.max(1, Number(item.community_report_count) || 1);
+      const communityBadge = communityCount > 1 ? `<span class="feed-community-badge">${communityCount} community reports</span>` : '';
+      return `<li class="feed-incident-item"><article class="feed-incident-card"><div class="feed-card-meta"><span class="feed-category-chip">${category}</span><time datetime="${created}">${escapeHtml(relativeDate(item.created_at))}</time><span class="feed-status-chip">${status}</span></div><h3>${escapeHtml(item.title)}</h3>${communityBadge}${location}<p class="feed-card-description">${escapeHtml(item.description || '')}</p>${renderMediaMarkup(incidentMedia[item.id], 'feed')}<button class="feed-details-button" type="button" data-incident="${escapeHtml(item.id)}">View details <span aria-hidden="true">→</span></button></article></li>`;
     }).join('');
     list.querySelectorAll('[data-incident]').forEach((button) => button.addEventListener('click', () => openDetail(button.dataset.incident)));
     const empty = $('#feed-state');
@@ -587,6 +592,7 @@
     const candidates = Array.isArray(matches) ? matches.slice(0, 3) : [];
     const panel = $('#duplicate-decision');
     if (!panel || !candidates.length) return;
+    pendingDuplicateCandidates = candidates;
     const first = candidates[0];
     const summary = candidates.length === 1
       ? `“${String(first && first.title || 'Similar incident')}” may describe the same event. Your report is saved and remains visible in My Reports.`
@@ -597,6 +603,8 @@
   function markReportDraft() {
     $('#report-progress-state').textContent = 'Not submitted';
     $('#duplicate-decision').hidden = true;
+    pendingDuplicateReportId = null;
+    pendingDuplicateCandidates = [];
     if ($('#form-message').classList.contains('success')) formMessage('', '');
   }
   function setReportCategory(value) {
@@ -724,6 +732,7 @@
         if (feedIndex >= 0) incidents[feedIndex] = { ...incidents[feedIndex], ...payload };
         renderIncidents();
       }
+      pendingDuplicateReportId = result.data && result.data.id;
       resetReportEditor();
       formMessage(wasEditing ? 'Report updated successfully.' : reportSubmissionMessage(result.data && result.data.potentialDuplicates), 'success');
       $('#report-progress-state').textContent = wasEditing ? 'Changes saved' : 'Reported · public';
@@ -731,6 +740,20 @@
       if (wasEditing) showScreen('reports');
     } catch (error) { formMessage(`Could not save the report: ${error && error.message ? error.message : 'Check your connection and try again.'}`, 'error'); }
     finally { window.ReportMedia.setBusy(false); button.disabled = false; if (!editingReportId) button.innerHTML = '<span aria-hidden="true">↑</span> Submit incident report'; }
+  }
+  async function linkDuplicateToPrimary() {
+    const candidate = pendingDuplicateCandidates[0];
+    if (!pendingDuplicateReportId || !candidate || !candidate.id) return;
+    const button = $('#duplicate-link');
+    button.disabled = true;
+    try {
+      const result = await window.BincomData.linkReportToIncident(pendingDuplicateReportId, candidate.id);
+      if (result.error) { formMessage(`The report was saved, but it could not be linked yet: ${result.error.message || 'Please try again from My Reports.'}`, 'error'); return; }
+      $('#duplicate-decision').hidden = true;
+      formMessage('Your report is saved and linked to the primary incident. It will count as a community report.', 'success');
+      pendingDuplicateReportId = null;
+      pendingDuplicateCandidates = [];
+    } finally { button.disabled = false; }
   }
   function showReportsState(title, body, actions = [], kind = 'empty') {
     const panel = $('#reports-state');
@@ -783,7 +806,11 @@
       const point = coordinates(item.latitude, item.longitude);
       const location = item.location_label || (point && point.label) || 'No location added';
       const mapLink = point ? mapPinLink(item) : '';
-      return `<li class="account-report-card"><div class="account-report-top"><div class="account-report-badges"><span class="account-report-status status-${statusKey}">${escapeHtml(statusLabel)}</span><span class="account-report-category">${escapeHtml(categoryLabel)}</span></div><time datetime="${escapeHtml(createdAt)}">${escapeHtml(date(createdAt))}</time></div><h3>${escapeHtml(item.title || 'Untitled report')}</h3><p class="account-report-description">${escapeHtml(excerpt)}</p><div class="account-report-location"><span aria-hidden="true">⌖</span><span>${escapeHtml(location)}</span>${mapLink}</div><div class="account-report-actions"><button type="button" class="secondary-button report-card-action" data-report-edit="${escapeHtml(item.id)}">Edit</button><button type="button" class="danger-button report-card-action" data-report-delete="${escapeHtml(item.id)}">Delete</button></div></li>`;
+      const communityCount = Math.max(1, Number(item.community_report_count) || 1);
+      const grouping = item.is_linked
+        ? `<p class="account-report-link-status">Linked to “${escapeHtml(item.primary_incident_title || 'primary incident')}” · ${communityCount} community reports</p>`
+        : (communityCount > 1 ? `<p class="account-report-link-status">Primary incident · ${communityCount} community reports</p>` : '');
+      return `<li class="account-report-card"><div class="account-report-top"><div class="account-report-badges"><span class="account-report-status status-${statusKey}">${escapeHtml(statusLabel)}</span><span class="account-report-category">${escapeHtml(categoryLabel)}</span></div><time datetime="${escapeHtml(createdAt)}">${escapeHtml(date(createdAt))}</time></div><h3>${escapeHtml(item.title || 'Untitled report')}</h3>${grouping}<p class="account-report-description">${escapeHtml(excerpt)}</p><div class="account-report-location"><span aria-hidden="true">⌖</span><span>${escapeHtml(location)}</span>${mapLink}</div><div class="account-report-actions"><button type="button" class="secondary-button report-card-action" data-report-edit="${escapeHtml(item.id)}">Edit</button><button type="button" class="danger-button report-card-action" data-report-delete="${escapeHtml(item.id)}">Delete</button></div></li>`;
     }).join('');
   }
   async function loadReports() {
@@ -864,8 +891,9 @@
   $('#account-new-report').addEventListener('click', () => showScreen('report'));
   $('#account-explore').addEventListener('click', () => showScreen('feed'));
   $('#detail-content').addEventListener('click', (event) => { const button = event.target.closest('button'); if (!button) return; if (button.hasAttribute('data-refresh-detail') && currentDetailId) { openDetail(currentDetailId); return; } if (button.hasAttribute('data-confirm-report')) submitResolutionConfirmation(button.dataset.confirmReport, button); });
-  $('#duplicate-keep').addEventListener('click', () => { $('#duplicate-decision').hidden = true; formMessage('Your report remains a separate community report.', 'success'); });
-  $('#duplicate-review').addEventListener('click', () => { $('#duplicate-decision').hidden = true; showScreen('feed'); loadFeed(); });
+  $('#duplicate-link').addEventListener('click', linkDuplicateToPrimary);
+  $('#duplicate-keep').addEventListener('click', () => { $('#duplicate-decision').hidden = true; pendingDuplicateReportId = null; pendingDuplicateCandidates = []; formMessage('Your report remains a separate community report.', 'success'); });
+  $('#duplicate-review').addEventListener('click', () => { $('#duplicate-decision').hidden = true; pendingDuplicateReportId = null; pendingDuplicateCandidates = []; showScreen('feed'); loadFeed(); });
   $('#startup-retry').addEventListener('click', initializeStartup);
   $('#startup-guest').addEventListener('click', () => showApplication('feed'));
   $('#welcome-account').addEventListener('click', () => openAuth('welcome'));
